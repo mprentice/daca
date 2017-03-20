@@ -90,10 +90,13 @@ class RAM:
         self.set_c(0, self.c(0) / self.v(a))
         return self.lc + 1
     def READ(self, i):
-        if i[:1] == "*":
-            self.set_c(self.c(int(i[1:])), self.input_tape[self.read_head])
-        else:
-            self.set_c(int(i), self.input_tape[self.read_head])
+        try:
+            if i[:1] == "*":
+                self.set_c(self.c(int(i[1:])), self.input_tape[self.read_head])
+            else:
+                self.set_c(int(i), self.input_tape[self.read_head])
+        except IndexError:
+            raise IndexError('Tried to read past end of input tape.')
         self.read_head += 1
         return self.lc + 1
     def WRITE(self, a):
