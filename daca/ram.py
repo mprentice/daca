@@ -1,3 +1,6 @@
+import sys
+import argparse
+
 class Instruction:
     """
     Representation of a single RAM instruction.
@@ -165,28 +168,23 @@ def parse(s):
             index += 1
     return Program(instructions, jumptable)
 
-def load_file(filename):
-    with open(filename, "r") as f:
-        s = f.read()
-        p = parse(s)
-    return p
-
-def usage():
-    return """
-Usage: bin/ram <program> [input ...]
-    where [input ...] is an optional list of
-    integers to be used as the input tape.
-Example: bin/ram ch1/n_pow_n.ram 5
-"""
-
 def main(argv=None):
     if argv is None:
         argv = []
-    if len(argv) < 2:
-        print usage()
-        return
-    p = load_file(argv[1])
-    t = [int(i) for i in argv[2:]]
-    m = RAM(p, t)
-    m.run()
-    print " ".join([str(i) for i in m.output_tape])
+    parser = argparse.ArgumentParser(
+        prog=argv[0],
+        description="Run specified RAM program on input tape."
+    )
+    parser.add_argument('program', type=argparse.FileType('r'), nargs=1,
+                        help='Program for RAM')
+    parser.add_argument('input', type=int, nargs='*',
+                        help='Program input tape')
+    args = parser.parse_args(argv[1:])
+    program = parse(args.program[0].read())
+    input_tape = args.input
+    ram = RAM(program, input_tape)
+    ram.run()
+    print " ".join([str(i) for i in ram.output_tape])
+
+if __name__ == "__main__":
+    main(sys.argv)
