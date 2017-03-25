@@ -30,6 +30,8 @@ class RAM:
     The machine execution methods (LOAD, STORE, ADD, JUMP, etc.) are in all
     caps and should not be called directly.
 
+    The run and step methods raise errors if the machine is in a halted state.
+
     Attributes:
         program (Program): RAM program being executed
         input_tape (list): The input tape for the RAM
@@ -63,6 +65,10 @@ class RAM:
 
         Steps through the next instruction until halting by repeatedly calling
         the step method.
+
+        Throws:
+            HaltError if the machine is in a halted state.
+            ReadError if attempting to read past the end of the input tape.
 
         """
         while not self.halted:
