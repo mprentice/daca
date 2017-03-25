@@ -22,51 +22,12 @@ Functions:
 import sys
 import argparse
 
-class Instruction:
-    """
-    Representation of a single RAM instruction.
-
-    An instruction consists of an opcode and an optional address. An address
-    can be an operand or a label.
-
-    """
-    def __init__(self, opcode, address=None):
-        self.opcode = opcode
-        self.address = address
-    def __repr__(self):
-        return "Instruction({}, {})".format(self.opcode, self.address)
-    def __str__(self):
-        if self.address is None:
-            return self.opcode
-        else:
-            return str(self.opcode) + " " + str(self.address)
-
-class Program:
-    def __init__(self, instructions, jumptable):
-        self.instructions = instructions
-        self.jumptable = jumptable
-    def emit(self):
-        left = self._label_column()
-        right = self.instructions
-        return "\n".join([l + str(r) for l,r in zip(left, right)])
-    def _label_column(self):
-        sep = ": "
-        indent = max([0] + [len(k) + len(sep) for k in self.jumptable.keys()])
-        prefix = " " * indent
-        label_column = [prefix] * len(self.instructions)
-        for label, line in self.jumptable.iteritems():
-            label_column[line] = (label + sep).ljust(indent)
-        return label_column
-    def __str__(self):
-        return self.emit()
-
 class RAM:
-    """
-    A random access machine (RAM) models a one-accumulator computer.
+    """A random access machine (RAM) models a one-accumulator computer.
 
     A RAM consists of a read-only input tape, a write-only output tape, a
-    program, and a memory. Instructions are not permitted to modify themselves.
-    Memory is an arbitrarily large sequence of integer registers.
+    program, and registers (memory). Instructions are not permitted to modify
+    themselves. Memory is an arbitrarily large sequence of integer registers.
 
     """
     def __init__(self, program, input_tape):
@@ -172,6 +133,44 @@ class RAM:
         o.append(" " * prefix(len(self.output_tape), max_output_square) + "v")
         o.append("O: " + format_tape(self.output_tape, max_output_square))
         return "\n".join(o)
+
+class Program:
+    def __init__(self, instructions, jumptable):
+        self.instructions = instructions
+        self.jumptable = jumptable
+    def emit(self):
+        left = self._label_column()
+        right = self.instructions
+        return "\n".join([l + str(r) for l,r in zip(left, right)])
+    def _label_column(self):
+        sep = ": "
+        indent = max([0] + [len(k) + len(sep) for k in self.jumptable.keys()])
+        prefix = " " * indent
+        label_column = [prefix] * len(self.instructions)
+        for label, line in self.jumptable.iteritems():
+            label_column[line] = (label + sep).ljust(indent)
+        return label_column
+    def __str__(self):
+        return self.emit()
+
+class Instruction:
+    """
+    Representation of a single RAM instruction.
+
+    An instruction consists of an opcode and an optional address. An address
+    can be an operand or a label.
+
+    """
+    def __init__(self, opcode, address=None):
+        self.opcode = opcode
+        self.address = address
+    def __repr__(self):
+        return "Instruction({}, {})".format(self.opcode, self.address)
+    def __str__(self):
+        if self.address is None:
+            return self.opcode
+        else:
+            return str(self.opcode) + " " + str(self.address)
 
 def parse(s):
     index = 0
