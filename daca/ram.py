@@ -1,3 +1,24 @@
+"""This module contains an implementation of a random access machine (RAM) and
+a simple parser for its instruction set.
+
+Classes:
+
+    RAM -- Implementation of the random access machine.
+
+    Program -- Represents a RAM program, including instructions and jumptable.
+
+    Instruction -- Represents a single RAM instruction.
+
+Functions:
+
+    parse(s) -- Parse the input string and return an instance of the Program
+                class.
+
+    main(argv) -- Entry point for the command line application to run a RAM
+                  program.
+
+"""
+
 import sys
 import argparse
 
