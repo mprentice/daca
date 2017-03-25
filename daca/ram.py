@@ -178,10 +178,10 @@ class Instruction:
         else:
             return str(self.opcode) + " " + str(self.address)
 
-class HaltError(Exception):
+class HaltError(ValueError):
     """Thrown when trying to execute a halted RAM."""
 
-class ReadError(Exception):
+class ReadError(IndexError):
     """Thrown when trying to read past end of input tape."""
 
 def parse(s):
