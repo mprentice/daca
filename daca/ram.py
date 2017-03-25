@@ -2,25 +2,18 @@
 a simple parser for its instruction set.
 
 Classes:
-
-    RAM -- Implementation of the random access machine.
-
-    Program -- Represents a RAM program, including instructions and jumptable.
-
-    Instruction -- Represents a single RAM instruction.
+    RAM: Implementation of the random access machine.
+    Program: Represents a RAM program, including instructions and jumptable.
+    Instruction: Represents a single RAM instruction.
 
 Functions:
-
-    parse(s) -- Parse the input string and return an instance of Program.
-
-    main(argv) -- Entry point for the command line application to run a RAM
-                  program.
+    parse(s): Parse the input string and return an instance of Program.
+    main(argv): Entry point for the command line application to run a RAM
+                program.
 
 Exceptions:
-
-    HaltError -- Thrown when trying to execute a halted RAM.
-
-    ReadError -- Thrown when trying to read past end of input tape.
+    HaltError: Thrown when trying to execute a halted RAM.
+    ReadError: Thrown when trying to read past end of input tape.
 
 """
 
@@ -34,8 +27,30 @@ class RAM:
     program, and registers (memory). Instructions are not permitted to modify
     themselves. Memory is an arbitrarily large sequence of integer registers.
 
+    The machine execution methods (LOAD, STORE, ADD, JUMP, etc.) are in all
+    caps and should not be called directly.
+
+    Attributes:
+        program (Program): RAM program being executed
+        input_tape (list): The input tape for the RAM
+        read_head (int): Index of the read head for the input_tape
+        output_tape (list): The output tape for the RAM. The write head is
+                            always at the end of the tape.
+        registers (dict): Arbitrarily large RAM memory, implemented as a mapping
+                          from register index (int) to register value (int)
+        lc (int): Location counter for next program instruction to execute
+        halted (bool): True if the machine is halted or in a bad state
+
     """
     def __init__(self, program, input_tape=None):
+        """Create a new RAM machine with given program and input tape.
+
+        Args:
+            program (Program): Program for the machine to run
+            input_tape (list): Input tape for the machine (optional, default
+                               is a blank tape)
+
+        """
         self.program = program
         self.input_tape = input_tape if input_tape is not None else list()
         self.read_head = 0
@@ -44,13 +59,26 @@ class RAM:
         self.lc = 0
         self.halted = False
     def run(self):
+        """Run the machine until reaching a halting state.
+
+        Steps through the next instruction until halting by repeatedly calling
+        the step method.
+
+        """
         while not self.halted:
             self.step()
     def step(self):
+        """Execute the next instruction.
+
+        Throws:
+            HaltError if the machine is in a halted state.
+            ReadError if attempting to read past the end of the input tape.
+
+        """
         if self.halted:
             raise HaltError("Attempt to step program on halted machine state")
-        self.lc = self.dispatch(self.program.instructions[self.lc])
-    def dispatch(self, ins):
+        self.lc = self._dispatch(self.program.instructions[self.lc])
+    def _dispatch(self, ins):
         if ins.opcode == "HALT":
             return self.HALT()
         m = getattr(self, ins.opcode)
@@ -106,10 +134,21 @@ class RAM:
         self.halted = True
         return self.lc
     def c(self, i):
+        """c(i): Return the value stored at register i."""
         return self.registers[i]
     def set_c(self, i, v):
+        """c(i) <- v: Set the value at register i to v."""
         self.registers[i] = v
     def v(self, address):
+        """v(address): Return the value for address.
+
+        Address can be one of:
+            =i Literal value of integer i
+            i  Integer value stored at register i
+            *i Integer value stored at the register number stored in register i
+               (indirect address)
+
+        """
         if address[:1] == "=":
             return int(address[1:])
         elif address[:1] == "*":
