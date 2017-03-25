@@ -11,11 +11,16 @@ Classes:
 
 Functions:
 
-    parse(s) -- Parse the input string and return an instance of the Program
-                class.
+    parse(s) -- Parse the input string and return an instance of Program.
 
     main(argv) -- Entry point for the command line application to run a RAM
                   program.
+
+Exceptions:
+
+    HaltError -- Thrown when trying to execute a halted RAM.
+
+    ReadError -- Thrown when trying to read past end of input tape.
 
 """
 
@@ -30,9 +35,9 @@ class RAM:
     themselves. Memory is an arbitrarily large sequence of integer registers.
 
     """
-    def __init__(self, program, input_tape):
+    def __init__(self, program, input_tape=None):
         self.program = program
-        self.input_tape = input_tape
+        self.input_tape = input_tape if input_tape is not None else list()
         self.read_head = 0
         self.output_tape = list()
         self.registers = {0: 0}
@@ -43,7 +48,7 @@ class RAM:
             self.step()
     def step(self):
         if self.halted:
-            raise Exception("Attempt to step program on halted machine state")
+            raise HaltError("Attempt to step program on halted machine state")
         self.lc = self.dispatch(self.program.instructions[self.lc])
     def dispatch(self, ins):
         if ins.opcode == "HALT":
@@ -78,7 +83,8 @@ class RAM:
             else:
                 self.set_c(int(i), self.input_tape[self.read_head])
         except IndexError:
-            raise IndexError('Tried to read past end of input tape.')
+            self.halted = True
+            raise ReadError("Tried to read past end of input tape.")
         self.read_head += 1
         return self.lc + 1
     def WRITE(self, a):
@@ -171,6 +177,12 @@ class Instruction:
             return self.opcode
         else:
             return str(self.opcode) + " " + str(self.address)
+
+class HaltError(Exception):
+    """Thrown when trying to execute a halted RAM."""
+
+class ReadError(Exception):
+    """Thrown when trying to read past end of input tape."""
 
 def parse(s):
     index = 0
