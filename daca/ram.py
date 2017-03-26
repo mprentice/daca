@@ -161,29 +161,35 @@ class RAM:
             return self.c(self.c(int(address[1:])))
         else:
             return self.c(int(address))
-    def __str__(self):
-        def format_cell(c, ms):
-            pad = ms - len(str(c))
-            left_pad = pad / 2 + 1
-            right_pad = pad / 2 + pad % 2 + 1
-            return " " * left_pad + str(c) + " " * right_pad
-        def format_tape(t, ms):
-            return "[" + "][".join([format_cell(c, ms) for c in t + ["_"]]) + "]"
-        def max_square(t):
-            return max([0] + [len(str(i)) for i in t])
-        def prefix(idx, ms):
-            return idx * (ms + 4) + (5 + ms / 2)
-        max_input_square = max_square(self.input_tape)
-        max_output_square = max_square(self.output_tape)
-        w = 40
-        o = ["I: " + format_tape(self.input_tape, max_input_square)]
-        o.append(" " * prefix(self.read_head, max_input_square) + "^")
-        o.append("+" + "-" * w + "+")
-        o.append("|" + " " * w + "|")
-        o.append("+" + "-" * w + "+")
-        o.append(" " * prefix(len(self.output_tape), max_output_square) + "v")
-        o.append("O: " + format_tape(self.output_tape, max_output_square))
+    def ascii_draw(self):
+        """Return a representation of the machine's current state as ASCII art."""
+        o = list()
+        o.append("I: " + self._ascii_tape(self.input_tape))
+        o.append("   " + self._ascii_tape_head(self.input_tape,
+                                               self.read_head, "^"))
+        o.append(self._ascii_ram())
+        o.append("   " + self._ascii_tape_head(self.output_tape,
+                                               len(self.output_tape), "v"))
+        o.append("O: " + self._ascii_tape(self.output_tape))
         return "\n".join(o)
+    def _ascii_tape(self, tape):
+        try:
+            max_cell = max(len(str(i)) for i in tape)
+            fmt = "{:^" + str(max_cell) + "}"
+            return "[" + "][".join(fmt.format(c) for c in tape) + "]"
+        except ValueError:
+            return "[_]"
+    def _ascii_tape_head(self, tape, index, symbol):
+        try:
+            cell_width = 2 + max(len(str(i)) for i in tape)
+            return " " * (cell_width * index + 1) + symbol
+        except ValueError:
+            return " " + symbol
+    def _ascii_ram(self):
+        return ""
+    def __repr__(self):
+        return "RAM({}, {})".format(repr(self.program), repr(self.input_tape))
+    __str__ = __repr__
 
 class Program:
     def __init__(self, instructions, jumptable):
