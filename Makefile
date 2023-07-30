@@ -8,8 +8,6 @@ clean: ## Remove compiled and build files
 
 devinstall: ## Install dev & test dependencies
 	poetry install
-	poetry install --group test
-	poetry install --group dev
 
 help: ## Show usage
 	@echo "Usage: make <target>"
