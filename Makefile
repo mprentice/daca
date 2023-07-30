@@ -1,10 +1,13 @@
+asdf: ## Install pinned versions of tool dependencies with asdf
+	asdf install
+
 clean: ## Remove compiled files
 	find . -name '*.pyc' -delete
 
 help: ## Show usage
-	@echo "Usage: make <command>"
+	@echo "Usage: make <target>"
 	@echo
-	@echo "Commands:"
+	@echo "Targets:"
 	@sed \
 		-e '/^[a-zA-Z0-9_\-]*:.*##/!d' \
 		-e 's/:.*##\s*/:/' \
