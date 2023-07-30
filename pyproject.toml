@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "daca"
+version = "0.1.0"
+description = "Design & Analysis of Computer Algorithms in Python"
+authors = ["Data Mike <mjp35@cornell.edu>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
