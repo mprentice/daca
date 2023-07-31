@@ -17,8 +17,8 @@ Exceptions:
 
 """
 
-import sys
 import argparse
+import sys
 
 
 class RAM:
@@ -226,7 +226,7 @@ class Program:
     def emit(self):
         left = self._label_column()
         right = self.instructions
-        return "\n".join([l + str(r) for l, r in zip(left, right)])
+        return "\n".join([lft + str(rgt) for lft, rgt in zip(left, right)])
 
     def _label_column(self):
         sep = ": "

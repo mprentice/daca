@@ -26,5 +26,6 @@ typecheck: ## Perform static type analysis on src with mypy
 	poetry run mypy src
 
 test: lint typecheck ## Run lint, typecheck, and unit tests
+	poetry run pytest --cov=src tests
 
 .PHONY: clean help lint typecheck test
