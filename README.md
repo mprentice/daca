@@ -10,9 +10,35 @@ implementing and playing around with the abstractions and algorithms.
 
 ## Development notes
 
-### asdf (optional)
+### Makefile
+
+A `Makefile` is provided. Show help and usage:
+
+    make help
+
+### Install tools (optional)
 
 Install pinned versions of python and poetry with
 [asdf](https://asdf-vm.com/):
 
-    asdf install
+    make asdf-install
+
+This step is optional. Just ensure that you have python and poetry installed.
+
+### Install dependencies
+
+Install required dependencies with [poetry](https://python-poetry.org/):
+
+    make poetry-install
+
+### Run tests
+
+Use [flake8](https://flake8.pycqa.org/en/latest/index.html) to perform code
+linting, [mypy](https://mypy.readthedocs.io/en/stable/) to run type checks, and
+[pytest](https://pytest.org) to run unit tests and generate a code coverage
+report:
+
+    make test
+
+flake8 plugins `flake8-bugbear`, `flake8-black`, and `flake8-isort` provide
+extra lint checks.
