@@ -1,4 +1,4 @@
-asdf: ## Install pinned versions of tool dependencies with asdf
+asdf-install: ## Install pinned versions of tool dependencies with asdf
 	asdf install
 
 clean: ## Remove compiled and build files
@@ -6,7 +6,7 @@ clean: ## Remove compiled and build files
 	find . -name '__pycache__' -delete
 	rm -rf .mypy_cache
 
-devinstall: ## Install dev & test dependencies
+poetry-install: ## Install dev & test dependencies
 	poetry install
 
 help: ## Show usage
@@ -28,4 +28,4 @@ typecheck: ## Perform static type analysis on src with mypy
 test: lint typecheck ## Run lint, typecheck, and unit tests
 	poetry run pytest --cov=src tests
 
-.PHONY: clean help lint typecheck test
+.PHONY: asdf-install clean help lint poetry-install test typecheck
