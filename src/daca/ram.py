@@ -18,7 +18,6 @@ Exceptions:
 """
 
 import argparse
-import sys
 
 
 class RAM:
@@ -292,17 +291,15 @@ def parse(s):
     return Program(instructions, jumptable)
 
 
-def main(argv=None):
-    if argv is None:
-        argv = []
+def main():
     parser = argparse.ArgumentParser(
-        prog=argv[0], description="Run specified RAM program on input tape."
+        description="Run specified RAM program on input tape."
     )
     parser.add_argument(
         "program", type=argparse.FileType("r"), nargs=1, help="Program for RAM"
     )
     parser.add_argument("input", type=int, nargs="*", help="Program input tape")
-    args = parser.parse_args(argv[1:])
+    args = parser.parse_args()
     program = parse(args.program[0].read())
     input_tape = args.input
     ram = RAM(program, input_tape)
@@ -311,4 +308,4 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    main(sys.argv)
+    main()
