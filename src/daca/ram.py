@@ -1,25 +1,98 @@
-"""This module contains an implementation of a random access machine (RAM) and
+"""Random Access Machine (RAM)
+
+This module contains an implementation of a random access machine (RAM) and
 a simple parser for its instruction set.
-
-Classes:
-    RAM: Implementation of the random access machine.
-    Program: Represents a RAM program, including instructions and jumptable.
-    Instruction: Represents a single RAM instruction.
-
-Functions:
-    parse(s): Parse the input string and return an instance of Program.
-    main(argv): Entry point for the command line application to run a RAM
-                program.
-
-Exceptions:
-    HaltError: Thrown when trying to execute a halted RAM.
-    ReadError: Thrown when trying to read past end of input tape.
-
 """
 
 import argparse
+from collections.abc import Mapping, MutableMapping, MutableSequence, Sequence
+from dataclasses import dataclass, field
+from enum import StrEnum
+from typing import Optional
 
 
+class HaltError(ValueError):
+    """Thrown when trying to execute a halted RAM."""
+
+
+class ReadError(IndexError):
+    """Thrown when trying to read past end of input tape."""
+
+
+class Opcode(StrEnum):
+    """Enumeration of RAM instructions opcodes."""
+
+    LOAD = "LOAD"
+    STORE = "STORE"
+    ADD = "ADD"
+    SUB = "SUB"
+    MULT = "MULT"
+    DIV = "DIV"
+    READ = "READ"
+    WRITE = "WRITE"
+    JUMP = "JUMP"
+    JGTZ = "JGTZ"
+    JZERO = "JZERO"
+    HALT = "HALT"
+
+
+@dataclass(frozen=True)
+class Instruction:
+    """Representation of a single RAM instruction.
+
+    An instruction consists of an opcode and an optional address. An address
+    can be an operand or a label. An instruction cannot be modified.
+
+    """
+
+    opcode: Opcode
+    address: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class Program:
+    """Representation of a RAM program. Cannot be modified."""
+
+    instructions: Sequence[Instruction]
+    jumptable: Mapping[str, int]
+
+    def serialize(self):
+        pad = 0
+        if self.jumptable:
+            pad = max([len(k) for k in self.jumptable.keys()]) + 3
+        jumplabels = {v: k for k, v in self.jumptable.items()}
+        lines = []
+        for index, inst in enumerate(self.instructions):
+            label = jumplabels[index] + ": " if index in jumplabels else ""
+            address = inst.address or ""
+            line = f"{label:<{pad}}{inst.opcode.value:<7}{address}".rstrip()
+            lines.append(line)
+        return "\n".join(lines)
+
+    @classmethod
+    def parse(cls, s: str) -> "Program":
+        index = 0
+        jumptable = {}
+        instructions = []
+        opcode = None
+        for tok in s.split():
+            if opcode is None and tok == "HALT":
+                instructions.append(Instruction(Opcode("HALT")))
+                index += 1
+            elif opcode is None and tok[-1] == ":":
+                label = tok[:-1]
+                jumptable[label] = index
+            elif opcode is None:
+                opcode = tok
+            else:
+                address = tok
+                instructions.append(Instruction(Opcode(opcode), address))
+                opcode = None
+                index += 1
+        return cls(tuple(instructions), jumptable)
+
+
+@dataclass
 class RAM:
     """A random access machine (RAM) models a one-accumulator computer.
 
@@ -31,38 +104,18 @@ class RAM:
     caps and should not be called directly.
 
     The run and step methods raise errors if the machine is in a halted state.
-
-    Attributes:
-        program (Program): RAM program being executed
-        input_tape (list): The input tape for the RAM
-        read_head (int): Index of the read head for the input_tape
-        output_tape (list): The output tape for the RAM. The write head is
-                            always at the end of the tape.
-        registers (dict): Arbitrarily large RAM memory, implemented as a mapping
-                          from register index (int) to register value (int)
-        lc (int): Location counter for next program instruction to execute
-        halted (bool): True if the machine is halted or in a bad state
-
     """
 
-    def __init__(self, program, input_tape=None):
-        """Create a new RAM machine with given program and input tape.
+    program: Program
+    input_tape: Sequence[int] = field(default_factory=tuple)
+    read_head: int = 0
+    location_counter: int = 0
+    memory_registers: MutableMapping[int, int] = field(default_factory=lambda: {0: 0})
+    output_tape: MutableSequence[int] = field(default_factory=list)
+    halted: bool = False
+    step_counter: int = 0
 
-        Args:
-            program (Program): Program for the machine to run
-            input_tape (list): Input tape for the machine (optional, default
-                               is a blank tape)
-
-        """
-        self.program = program
-        self.input_tape = input_tape if input_tape is not None else list()
-        self.read_head = 0
-        self.output_tape = list()
-        self.registers = {0: 0}
-        self.lc = 0
-        self.halted = False
-
-    def run(self):
+    def run(self) -> None:
         """Run the machine until reaching a halting state.
 
         Steps through the next instruction until halting by repeatedly calling
@@ -76,7 +129,7 @@ class RAM:
         while not self.halted:
             self.step()
 
-    def step(self):
+    def step(self) -> None:
         """Execute the next instruction.
 
         Throws:
@@ -86,86 +139,131 @@ class RAM:
         """
         if self.halted:
             raise HaltError("Attempt to step program on halted machine state")
-        self.lc = self._dispatch(self.program.instructions[self.lc])
+        self.location_counter = self.dispatch(
+            self.program.instructions[self.location_counter]
+        )
+        self.step_counter += 1
 
-    def _dispatch(self, ins):
-        if ins.opcode == "HALT":
+    def dispatch(self, ins: Instruction) -> int:
+        """Dispatch and run one instruction (one step).
+
+        Returns location counter for next instruction.
+        """
+        if self.halted:
+            raise HaltError(
+                f"Attempt to dispatch instruction: {ins} on halted machine state"
+            )
+        if ins.opcode == Opcode.HALT:
             return self.HALT()
-        m = getattr(self, ins.opcode)
+        m = getattr(self, ins.opcode.value)
         return m(ins.address)
 
-    def LOAD(self, a):
+    def LOAD(self, a: str) -> int:
+        """LOAD a: c(0) <- v(a)"""
         self.set_c(0, self.v(a))
-        return self.lc + 1
+        return self.location_counter + 1
 
-    def STORE(self, i):
-        if i[:1] == "*":
+    def STORE(self, i: str) -> int:
+        """STORE i: c(i) <- c(0)
+
+        STORE *i: c(c(i)) <- c(0)
+        """
+        if i.startswith("*"):
             self.set_c(self.c(int(i[1:])), self.c(0))
         else:
             self.set_c(int(i), self.c(0))
-        return self.lc + 1
+        return self.location_counter + 1
 
-    def ADD(self, a):
+    def ADD(self, a: str) -> int:
+        """ADD a: c(0) <- c(0) + v(a)"""
         self.set_c(0, self.c(0) + self.v(a))
-        return self.lc + 1
+        return self.location_counter + 1
 
-    def SUB(self, a):
+    def SUB(self, a: str) -> int:
+        """SUB a: c(0) <- c(0) - v(a)"""
         self.set_c(0, self.c(0) - self.v(a))
-        return self.lc + 1
+        return self.location_counter + 1
 
-    def MULT(self, a):
+    def MULT(self, a: str) -> int:
+        """MULT a: c(0) <- c(0) * v(a)"""
         self.set_c(0, self.c(0) * self.v(a))
-        return self.lc + 1
+        return self.location_counter + 1
 
-    def DIV(self, a):
-        self.set_c(0, self.c(0) / self.v(a))
-        return self.lc + 1
+    def DIV(self, a: str) -> int:
+        """DIV a: c(0) <- c(0) * v(a)"""
+        self.set_c(0, self.c(0) // self.v(a))
+        return self.location_counter + 1
 
-    def READ(self, i):
+    def READ(self, i: str) -> int:
+        """READ i: c(i) <- current input tape symbol
+
+        READ *i: c(c(i)) <- current input tape symbol
+
+        Input tape head moves one square right.
+        """
         try:
-            if i[:1] == "*":
+            if i.startswith("*"):
                 self.set_c(self.c(int(i[1:])), self.input_tape[self.read_head])
             else:
                 self.set_c(int(i), self.input_tape[self.read_head])
-        except IndexError:
+        except IndexError as ex:
             self.halted = True
-            raise ReadError("Tried to read past end of input tape.")
+            raise ReadError("Tried to read past end of input tape.") from ex
         self.read_head += 1
-        return self.lc + 1
+        return self.location_counter + 1
 
-    def WRITE(self, a):
+    def WRITE(self, a: str) -> int:
+        """WRITE a: v(a) is printed on the output tape
+
+        Output tape head moves one square right.
+        """
         self.output_tape.append(self.v(a))
-        return self.lc + 1
+        return self.location_counter + 1
 
-    def JUMP(self, b):
+    def JUMP(self, b: str) -> int:
+        """JUMP b: set location counter to instruction labeled b"""
         return self.program.jumptable[b]
 
-    def JGTZ(self, b):
+    def JGTZ(self, b: str) -> int:
+        """JGTZ b: conditionally set location counter to instruction labeled b
+
+        If c(0) > 0: set location counter to instruction labeled b
+
+        Otherwise, set location counter to next instruction"""
         if self.c(0) > 0:
             return self.program.jumptable[b]
         else:
-            return self.lc + 1
+            return self.location_counter + 1
 
-    def JZERO(self, b):
+    def JZERO(self, b: str) -> int:
+        """JZERO b: conditionally set location counter to instruction labeled b
+
+        If c(0) = 0: set location counter to instruction labeled b
+
+        Otherwise, set location counter to next instruction"""
         if self.c(0) == 0:
             return self.program.jumptable[b]
         else:
-            return self.lc + 1
+            return self.location_counter + 1
 
-    def HALT(self):
+    def HALT(self) -> int:
+        """Halt execution of machine."""
         self.halted = True
-        return self.lc
+        return self.location_counter
 
-    def c(self, i):
+    def c(self, i: int) -> int:
         """c(i): Return the value stored at register i."""
-        return self.registers[i]
+        try:
+            return self.memory_registers[i]
+        except KeyError as ex:
+            raise IndexError(f"Read from uninitialized memory register {i}") from ex
 
-    def set_c(self, i, v):
+    def set_c(self, i: int, v: int) -> None:
         """c(i) <- v: Set the value at register i to v."""
-        self.registers[i] = v
+        self.memory_registers[i] = v
 
-    def v(self, address):
-        """v(address): Return the value for address.
+    def v(self, a: str) -> int:
+        """v(a): Return the value for address a.
 
         Address can be one of:
             =i Literal value of integer i
@@ -174,124 +272,15 @@ class RAM:
                (indirect address)
 
         """
-        if address[:1] == "=":
-            return int(address[1:])
-        elif address[:1] == "*":
-            return self.c(self.c(int(address[1:])))
+        if a.startswith("="):
+            return int(a[1:])
+        elif a.startswith("*"):
+            return self.c(self.c(int(a[1:])))
         else:
-            return self.c(int(address))
-
-    def ascii_draw(self):
-        """Return a representation of the machine's current state as ASCII art."""
-        o = list()
-        o.append("I: " + self._ascii_tape(self.input_tape))
-        o.append("   " + self._ascii_tape_head(self.input_tape, self.read_head, "^"))
-        o.append(self._ascii_ram())
-        o.append(
-            "   " + self._ascii_tape_head(self.output_tape, len(self.output_tape), "v")
-        )
-        o.append("O: " + self._ascii_tape(self.output_tape))
-        return "\n".join(o)
-
-    def _ascii_tape(self, tape):
-        try:
-            max_cell = max(len(str(i)) for i in tape)
-            fmt = "{:^" + str(max_cell) + "}"
-            return "[" + "][".join(fmt.format(c) for c in tape) + "]"
-        except ValueError:
-            return "[_]"
-
-    def _ascii_tape_head(self, tape, index, symbol):
-        try:
-            cell_width = 2 + max(len(str(i)) for i in tape)
-            return " " * (cell_width * index + 1) + symbol
-        except ValueError:
-            return " " + symbol
-
-    def _ascii_ram(self):
-        return ""
-
-    def __repr__(self):
-        return "RAM({}, {})".format(repr(self.program), repr(self.input_tape))
-
-    __str__ = __repr__
+            return self.c(int(a))
 
 
-class Program:
-    def __init__(self, instructions, jumptable):
-        self.instructions = instructions
-        self.jumptable = jumptable
-
-    def emit(self):
-        left = self._label_column()
-        right = self.instructions
-        return "\n".join([lft + str(rgt) for lft, rgt in zip(left, right)])
-
-    def _label_column(self):
-        sep = ": "
-        indent = max([0] + [len(k) + len(sep) for k in self.jumptable.keys()])
-        prefix = " " * indent
-        label_column = [prefix] * len(self.instructions)
-        for label, line in self.jumptable.iteritems():
-            label_column[line] = (label + sep).ljust(indent)
-        return label_column
-
-    def __str__(self):
-        return self.emit()
-
-
-class Instruction:
-    """
-    Representation of a single RAM instruction.
-
-    An instruction consists of an opcode and an optional address. An address
-    can be an operand or a label.
-
-    """
-
-    def __init__(self, opcode, address=None):
-        self.opcode = opcode
-        self.address = address
-
-    def __repr__(self):
-        return "Instruction({}, {})".format(self.opcode, self.address)
-
-    def __str__(self):
-        if self.address is None:
-            return self.opcode
-        else:
-            return str(self.opcode) + " " + str(self.address)
-
-
-class HaltError(ValueError):
-    """Thrown when trying to execute a halted RAM."""
-
-
-class ReadError(IndexError):
-    """Thrown when trying to read past end of input tape."""
-
-
-def parse(s):
-    index = 0
-    jumptable = dict()
-    instructions = list()
-    acc = None
-    for tok in s.split():
-        if acc is None and tok == "HALT":
-            instructions.append(Instruction("HALT"))
-            index += 1
-        elif acc is None and tok[-1] == ":":
-            jumptable[tok[:-1]] = index
-        elif acc is None:
-            acc = tok
-        else:
-            instructions.append(Instruction(acc, tok))
-            acc = None
-            index += 1
-    return Program(instructions, jumptable)
-
-
-def main():
+def make_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run specified RAM program on input tape."
     )
@@ -299,11 +288,20 @@ def main():
         "program", type=argparse.FileType("r"), nargs=1, help="Program for RAM"
     )
     parser.add_argument("input", type=int, nargs="*", help="Program input tape")
-    args = parser.parse_args()
-    program = parse(args.program[0].read())
-    input_tape = args.input
+    return parser
+
+
+def main(argv: Optional[list[str]] = None) -> None:
+    parser = make_arg_parser()
+    args = parser.parse_args() if argv is None else parser.parse_args(argv)
+
+    input_tape = tuple(args.input)
+    program = Program.parse(args.program[0].read())
+
     ram = RAM(program, input_tape)
+
     ram.run()
+
     print(" ".join([str(i) for i in ram.output_tape]))
 
 

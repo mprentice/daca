@@ -1,13 +1,10 @@
-asdf-install: ## Install pinned versions of tool dependencies with asdf
-	asdf install
-
 clean: ## Remove compiled and build files
 	find . -name '*.pyc' -delete
 	find . -name '__pycache__' -delete
 	rm -rf .mypy_cache
 
-poetry-install: ## Install dev & test dependencies
-	poetry install
+install: ## Install dev & test dependencies
+	poetry install --with=dev --with=test
 
 help: ## Show usage
 	@echo "Usage: make <target>"

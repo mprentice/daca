@@ -16,20 +16,11 @@ A `Makefile` is provided. Show help and usage:
 
     make help
 
-### Install tools (optional)
-
-Install pinned versions of python and poetry with
-[asdf](https://asdf-vm.com/):
-
-    make asdf-install
-
-This step is optional. Just ensure that you have python and poetry installed.
-
 ### Install dependencies
 
 Install required dependencies with [poetry](https://python-poetry.org/):
 
-    make poetry-install
+    make install
 
 ### Run tests
 

@@ -1,12 +1,36 @@
 from pathlib import Path
 
-from daca.ram import RAM, parse
+import pytest
+
+from daca.ram import RAM, Program
 
 
-def test_ram_n_pow_n():
-    p = Path(__file__).parent.parent / "examples" / "ch1" / "n_pow_n.ram"
-    input_tape = [5]
-    program = parse(p.read_text())
+@pytest.fixture
+def n_pow_n_file() -> Path:
+    return Path(__file__).parent.parent / "examples" / "ch1" / "n_pow_n.ram"
+
+
+@pytest.fixture
+def n_pow_n(n_pow_n_file: Path) -> str:
+    return n_pow_n_file.read_text()
+
+
+def test_program_parse(n_pow_n: str):
+    p = Program.parse(n_pow_n)
+    assert p is not None
+
+
+def test_program_serialize(n_pow_n: str):
+    p = Program.parse(n_pow_n)
+    s = p.serialize()
+    assert p == Program.parse(s)
+
+
+def test_ram(n_pow_n: str):
+    program = Program.parse(n_pow_n)
+    input_tape = (5,)
     ram = RAM(program, input_tape)
     ram.run()
-    assert ram.output_tape == [5**5]
+    assert len(ram.output_tape) == 1
+    assert ram.output_tape[0] == 5**5
+    assert ram.step_counter == 49
