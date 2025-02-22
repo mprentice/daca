@@ -2,6 +2,8 @@ clean: ## Remove compiled and build files
 	find . -name '*.pyc' -delete
 	find . -name '__pycache__' -delete
 	rm -rf .mypy_cache
+	rm -rf .pytest_cache
+	rm -f .coverage
 
 install: ## Install dev & test dependencies
 	poetry install --with=dev --with=test
