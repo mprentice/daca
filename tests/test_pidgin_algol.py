@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from daca.pidgin_algol import Lexer, TokenType
+from daca.pidgin_algol import TokenType, tokenize
 
 
 @pytest.fixture
@@ -16,8 +16,7 @@ def n_pow_n(n_pow_n_file: Path) -> str:
 
 
 def test_lexer(n_pow_n: str):
-    lexer = Lexer()
-    toks = [t for t in lexer.tokenize(n_pow_n)]
+    toks = [t for t in tokenize(n_pow_n)]
     assert len(toks) == 47
     assert toks[0].type_ == TokenType.begin
     assert toks[-1].type_ == TokenType.end
