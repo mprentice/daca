@@ -63,7 +63,7 @@ class Program:
         jumplabels = {v: k for k, v in self.jumptable.items()}
         lines = []
         for index, inst in enumerate(self.instructions):
-            label = jumplabels[index] + ": " if index in jumplabels else ""
+            label = jumplabels[index] + ":" if index in jumplabels else ""
             address = inst.address or ""
             line = f"{label:<{pad}}{inst.opcode.value:<7}{address}".rstrip()
             lines.append(line)
@@ -159,14 +159,14 @@ class RAM:
         return m(ins.address)
 
     def LOAD(self, a: str) -> int:
-        """LOAD a: c(0) <- v(a)"""
+        """LOAD a: c(0) ← v(a)"""
         self.set_c(0, self.v(a))
         return self.location_counter + 1
 
     def STORE(self, i: str) -> int:
-        """STORE i: c(i) <- c(0)
+        """STORE i: c(i) ← c(0)
 
-        STORE *i: c(c(i)) <- c(0)
+        STORE *i: c(c(i)) ← c(0)
         """
         if i.startswith("*"):
             self.set_c(self.c(int(i[1:])), self.c(0))
@@ -175,29 +175,29 @@ class RAM:
         return self.location_counter + 1
 
     def ADD(self, a: str) -> int:
-        """ADD a: c(0) <- c(0) + v(a)"""
+        """ADD a: c(0) ← c(0) + v(a)"""
         self.set_c(0, self.c(0) + self.v(a))
         return self.location_counter + 1
 
     def SUB(self, a: str) -> int:
-        """SUB a: c(0) <- c(0) - v(a)"""
+        """SUB a: c(0) ← c(0) - v(a)"""
         self.set_c(0, self.c(0) - self.v(a))
         return self.location_counter + 1
 
     def MULT(self, a: str) -> int:
-        """MULT a: c(0) <- c(0) * v(a)"""
+        """MULT a: c(0) ← c(0) * v(a)"""
         self.set_c(0, self.c(0) * self.v(a))
         return self.location_counter + 1
 
     def DIV(self, a: str) -> int:
-        """DIV a: c(0) <- c(0) * v(a)"""
+        """DIV a: c(0) ← c(0) * v(a)"""
         self.set_c(0, self.c(0) // self.v(a))
         return self.location_counter + 1
 
     def READ(self, i: str) -> int:
-        """READ i: c(i) <- current input tape symbol
+        """READ i: c(i) ← current input tape symbol
 
-        READ *i: c(c(i)) <- current input tape symbol
+        READ *i: c(c(i)) ← current input tape symbol
 
         Input tape head moves one square right.
         """
@@ -259,7 +259,7 @@ class RAM:
             raise IndexError(f"Read from uninitialized memory register {i}") from ex
 
     def set_c(self, i: int, v: int) -> None:
-        """c(i) <- v: Set the value at register i to v."""
+        """c(i) ← v: Set the value at register i to v."""
         self.memory_registers[i] = v
 
     def v(self, a: str) -> int:
@@ -280,30 +280,43 @@ class RAM:
             return self.c(int(a))
 
 
-def make_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Run specified RAM program on input tape."
-    )
-    parser.add_argument(
-        "program", type=argparse.FileType("r"), nargs=1, help="Program for RAM"
-    )
-    parser.add_argument("input", type=int, nargs="*", help="Program input tape")
-    return parser
+class App:
+    """CLI application for running a RAM program."""
 
+    def __init__(self):
+        self._argument_parser = None
 
-def main(argv: Optional[list[str]] = None) -> None:
-    parser = make_arg_parser()
-    args = parser.parse_args() if argv is None else parser.parse_args(argv)
+    @property
+    def argument_parser(self) -> argparse.ArgumentParser:
+        """CLI argument parser for RAM application."""
+        if self._argument_parser:
+            return self._argument_parser
 
-    input_tape = tuple(args.input)
-    program = Program.parse(args.program[0].read())
+        self._argument_parser = argparse.ArgumentParser(
+            description="Run specified RAM program on input tape."
+        )
+        self._argument_parser.add_argument(
+            "program", type=argparse.FileType("r"), nargs=1, help="Program for RAM"
+        )
+        self._argument_parser.add_argument(
+            "input", type=int, nargs="*", help="Program input tape"
+        )
+        return self._argument_parser
 
-    ram = RAM(program, input_tape)
+    def run(self, argv: Optional[list[str]] = None):
+        """CLI application main run method."""
+        parser = self.argument_parser
+        args = parser.parse_args() if argv is None else parser.parse_args(argv)
 
-    ram.run()
+        input_tape = tuple(args.input)
+        program = Program.parse(args.program[0].read())
 
-    print(" ".join([str(i) for i in ram.output_tape]))
+        ram = RAM(program, input_tape)
+
+        ram.run()
+
+        print(" ".join([str(i) for i in ram.output_tape]))
 
 
 if __name__ == "__main__":
-    main()
+    App().run()
