@@ -1,0 +1,15 @@
+begin
+    read r1;
+    if r1 ≤ 0 then write 0
+    else
+        begin
+            r2 ← r1;
+            r3 ← r1 - 1;
+            while r3 > 0 do
+                begin
+                    r2 ← r2 * r1;
+                    r3 ← r3 - r1;
+                end;
+            write r2
+        end
+end
