@@ -356,7 +356,15 @@ class Parser:
 
     def read_write(self) -> WriteStatement:
         self.assert_token(self.next(), TokenType.write)
-        return WriteStatement(self.read_unary_expression())
+        exp = self.read_unary_expression()
+        if not (
+            isinstance(exp, VariableExpression) or isinstance(exp, LiteralExpression)
+        ):
+            raise ParseError(
+                f"Unexpected unary expression {exp} of type "
+                f"{exp.__class__.__name__} (Expected: variable or literal)"
+            )
+        return WriteStatement(exp)
 
     def read_assignment(self) -> AssignmentStatement:
         tgt = self.next()
