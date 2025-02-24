@@ -8,6 +8,7 @@ from collections.abc import Iterable, MutableSequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pprint import pprint
+from textwrap import wrap
 from typing import Generator, Optional, TextIO
 
 
@@ -39,6 +40,9 @@ class TokenType(StrEnum):
     div = "/"
     id_ = "<IDENTIFIER>"
     literal_int = "<INTEGER LITERAL>"
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}.{self.name}"
 
 
 @dataclass
@@ -506,7 +510,7 @@ class App:
                     pprint(toks)
             else:
                 tok_vals = [t.val for t in toks]
-                print(" ".join(tok_vals))
+                print("\n".join(wrap("«" + "» «".join(tok_vals) + "»", width=80)))
 
         if args.parse:
             ast = parse(tokenize(program_text))
