@@ -4,7 +4,6 @@ This module contains an implementation of a random access machine (RAM) and
 a simple parser for its instruction set.
 """
 
-import argparse
 from collections.abc import Mapping, MutableMapping, MutableSequence, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -68,28 +67,6 @@ class Program:
             line = f"{label:<{pad}}{inst.opcode.value:<7}{address}".rstrip()
             lines.append(line)
         return "\n".join(lines)
-
-    @classmethod
-    def parse(cls, s: str) -> "Program":
-        index = 0
-        jumptable = {}
-        instructions = []
-        opcode = None
-        for tok in s.split():
-            if opcode is None and tok == "HALT":
-                instructions.append(Instruction(Opcode("HALT")))
-                index += 1
-            elif opcode is None and tok[-1] == ":":
-                label = tok[:-1]
-                jumptable[label] = index
-            elif opcode is None:
-                opcode = tok
-            else:
-                address = tok
-                instructions.append(Instruction(Opcode(opcode), address))
-                opcode = None
-                index += 1
-        return cls(tuple(instructions), jumptable)
 
 
 @dataclass
@@ -278,45 +255,3 @@ class RAM:
             return self.c(self.c(int(a[1:])))
         else:
             return self.c(int(a))
-
-
-class App:
-    """CLI application for running a RAM program."""
-
-    def __init__(self):
-        self._argument_parser = None
-
-    @property
-    def argument_parser(self) -> argparse.ArgumentParser:
-        """CLI argument parser for RAM application."""
-        if self._argument_parser:
-            return self._argument_parser
-
-        self._argument_parser = argparse.ArgumentParser(
-            description="Run specified RAM program on input tape."
-        )
-        self._argument_parser.add_argument(
-            "program", type=argparse.FileType("r"), nargs=1, help="Program for RAM"
-        )
-        self._argument_parser.add_argument(
-            "input", type=int, nargs="*", help="Program input tape"
-        )
-        return self._argument_parser
-
-    def run(self, argv: Optional[list[str]] = None):
-        """CLI application main run method."""
-        parser = self.argument_parser
-        args = parser.parse_args() if argv is None else parser.parse_args(argv)
-
-        input_tape = tuple(args.input)
-        program = Program.parse(args.program[0].read())
-
-        ram = RAM(program, input_tape)
-
-        ram.run()
-
-        print(" ".join([str(i) for i in ram.output_tape]))
-
-
-if __name__ == "__main__":
-    App().run()

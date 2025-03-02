@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from daca.ram import RAM, Program
+from daca.ram import RAM, parse
 
 
 @pytest.fixture
@@ -16,18 +16,18 @@ def n_pow_n(n_pow_n_file: Path) -> str:
 
 
 def test_program_parse(n_pow_n: str):
-    p = Program.parse(n_pow_n)
+    p = parse(n_pow_n)
     assert p is not None
 
 
 def test_program_serialize(n_pow_n: str):
-    p = Program.parse(n_pow_n)
+    p = parse(n_pow_n)
     s = p.serialize()
-    assert p == Program.parse(s)
+    assert p == parse(s)
 
 
 def test_ram(n_pow_n: str):
-    program = Program.parse(n_pow_n)
+    program = parse(n_pow_n)
     input_tape = (5,)
     ram = RAM(program, input_tape)
     ram.run()

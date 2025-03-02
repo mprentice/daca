@@ -6,6 +6,10 @@ authors = ["Data Mike <mjp35@cornell.edu>"]
 license = "MIT"
 readme = "README.md"
 
+[tool.poetry.scripts]
+ram = "daca.ram.cli:main"
+palgol = "daca.pidgin_algol.cli:main"
+
 [tool.poetry.dependencies]
 python = "^3.11"
 
