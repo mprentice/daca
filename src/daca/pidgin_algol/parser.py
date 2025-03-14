@@ -206,8 +206,12 @@ class Parser(BaseParser[AST]):
         init=False, default_factory=lambda: BufferedTokenStream([])
     )
 
-    def parse(self, token_stream: Iterable[Token]) -> AST:
-        self._token_stream = BufferedTokenStream(token_stream)
+    def parse(self, token_stream: str | TextIO | Iterable[Token]) -> AST:
+        if isinstance(token_stream, str) or hasattr(token_stream, "read"):
+            b = BufferedTokenStream(self.lexer.tokenize(token_stream))  # type: ignore
+            self._token_stream = b
+        else:
+            self._token_stream = BufferedTokenStream(token_stream)
         return AST(head=self.read_block())
 
     def read_block(self) -> BlockStatement:

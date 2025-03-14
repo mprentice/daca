@@ -46,11 +46,11 @@ def tokenize(input_stream: str | TextIO) -> Generator[Token, None, None]:
 class Parser(BaseParser[Program]):
     lexer: Lexer = field(default_factory=Lexer)
 
-    def parse(self, s: str | TextIO | Iterable[Token]) -> Program:
-        if isinstance(s, str) or hasattr(s, "read"):
-            b = BufferedTokenStream(self.lexer.tokenize(s))  # type: ignore
+    def parse(self, token_stream: str | TextIO | Iterable[Token]) -> Program:
+        if isinstance(token_stream, str) or hasattr(token_stream, "read"):
+            b = BufferedTokenStream(self.lexer.tokenize(token_stream))  # type: ignore
             return self._parse_token_stream(b)
-        return self._parse_token_stream(BufferedTokenStream(s))
+        return self._parse_token_stream(BufferedTokenStream(token_stream))
 
     def _parse_token_stream(self, ts: BufferedTokenStream) -> Program:
         index = 0
