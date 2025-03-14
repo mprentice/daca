@@ -22,7 +22,7 @@ lint: ## Perform code linting
 	poetry run flake8 src tests
 
 typecheck: ## Perform static type analysis on src with mypy
-	poetry run mypy src
+	poetry run mypy -p daca
 
 test: lint typecheck ## Run lint, typecheck, and unit tests
 	poetry run pytest --cov=src tests

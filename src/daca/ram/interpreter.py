@@ -1,13 +1,7 @@
-"""Random Access Machine (RAM)
-
-This module contains an implementation of a random access machine (RAM) and
-a simple parser for its instruction set.
-"""
-
-from collections.abc import Mapping, MutableMapping, MutableSequence, Sequence
+from collections.abc import MutableMapping, MutableSequence, Sequence
 from dataclasses import dataclass, field
-from enum import StrEnum
-from typing import Optional
+
+from .program import Instruction, JumpTarget, Opcode, Operand, OperandFlag, Program
 
 
 class HaltError(ValueError):
@@ -16,57 +10,6 @@ class HaltError(ValueError):
 
 class ReadError(IndexError):
     """Thrown when trying to read past end of input tape."""
-
-
-class Opcode(StrEnum):
-    """Enumeration of RAM instructions opcodes."""
-
-    LOAD = "LOAD"
-    STORE = "STORE"
-    ADD = "ADD"
-    SUB = "SUB"
-    MULT = "MULT"
-    DIV = "DIV"
-    READ = "READ"
-    WRITE = "WRITE"
-    JUMP = "JUMP"
-    JGTZ = "JGTZ"
-    JZERO = "JZERO"
-    HALT = "HALT"
-
-
-@dataclass(frozen=True)
-class Instruction:
-    """Representation of a single RAM instruction.
-
-    An instruction consists of an opcode and an optional address. An address
-    can be an operand or a label. An instruction cannot be modified.
-
-    """
-
-    opcode: Opcode
-    address: Optional[str] = None
-
-
-@dataclass(frozen=True)
-class Program:
-    """Representation of a RAM program. Cannot be modified."""
-
-    instructions: Sequence[Instruction]
-    jumptable: Mapping[str, int]
-
-    def serialize(self):
-        pad = 0
-        if self.jumptable:
-            pad = max([len(k) for k in self.jumptable.keys()]) + 3
-        jumplabels = {v: k for k, v in self.jumptable.items()}
-        lines = []
-        for index, inst in enumerate(self.instructions):
-            label = jumplabels[index] + ":" if index in jumplabels else ""
-            address = inst.address or ""
-            line = f"{label:<{pad}}{inst.opcode.value:<7}{address}".rstrip()
-            lines.append(line)
-        return "\n".join(lines)
 
 
 @dataclass
@@ -130,48 +73,50 @@ class RAM:
             raise HaltError(
                 f"Attempt to dispatch instruction: {ins} on halted machine state"
             )
-        if ins.opcode == Opcode.HALT:
-            return self.HALT()
         m = getattr(self, ins.opcode.value)
-        return m(ins.address)
+        a = ins.address
+        if ins.opcode == Opcode.HALT:
+            return m()
+        else:
+            return m(a)
 
-    def LOAD(self, a: str) -> int:
+    def LOAD(self, a: Operand) -> int:
         """LOAD a: c(0) ← v(a)"""
         self.set_c(0, self.v(a))
         return self.location_counter + 1
 
-    def STORE(self, i: str) -> int:
+    def STORE(self, i: Operand) -> int:
         """STORE i: c(i) ← c(0)
 
         STORE *i: c(c(i)) ← c(0)
         """
-        if i.startswith("*"):
-            self.set_c(self.c(int(i[1:])), self.c(0))
+        if i.flag == OperandFlag.indirect:
+            self.set_c(self.c(i.value), self.c(0))
         else:
-            self.set_c(int(i), self.c(0))
+            self.set_c(i.value, self.c(0))
         return self.location_counter + 1
 
-    def ADD(self, a: str) -> int:
+    def ADD(self, a: Operand) -> int:
         """ADD a: c(0) ← c(0) + v(a)"""
         self.set_c(0, self.c(0) + self.v(a))
         return self.location_counter + 1
 
-    def SUB(self, a: str) -> int:
+    def SUB(self, a: Operand) -> int:
         """SUB a: c(0) ← c(0) - v(a)"""
         self.set_c(0, self.c(0) - self.v(a))
         return self.location_counter + 1
 
-    def MULT(self, a: str) -> int:
+    def MULT(self, a: Operand) -> int:
         """MULT a: c(0) ← c(0) * v(a)"""
         self.set_c(0, self.c(0) * self.v(a))
         return self.location_counter + 1
 
-    def DIV(self, a: str) -> int:
+    def DIV(self, a: Operand) -> int:
         """DIV a: c(0) ← c(0) * v(a)"""
         self.set_c(0, self.c(0) // self.v(a))
         return self.location_counter + 1
 
-    def READ(self, i: str) -> int:
+    def READ(self, i: Operand) -> int:
         """READ i: c(i) ← current input tape symbol
 
         READ *i: c(c(i)) ← current input tape symbol
@@ -179,17 +124,17 @@ class RAM:
         Input tape head moves one square right.
         """
         try:
-            if i.startswith("*"):
-                self.set_c(self.c(int(i[1:])), self.input_tape[self.read_head])
+            if i.flag == OperandFlag.indirect:
+                self.set_c(self.c(i.value), self.input_tape[self.read_head])
             else:
-                self.set_c(int(i), self.input_tape[self.read_head])
+                self.set_c(i.value, self.input_tape[self.read_head])
         except IndexError as ex:
             self.halted = True
             raise ReadError("Tried to read past end of input tape.") from ex
         self.read_head += 1
         return self.location_counter + 1
 
-    def WRITE(self, a: str) -> int:
+    def WRITE(self, a: Operand) -> int:
         """WRITE a: v(a) is printed on the output tape
 
         Output tape head moves one square right.
@@ -197,11 +142,11 @@ class RAM:
         self.output_tape.append(self.v(a))
         return self.location_counter + 1
 
-    def JUMP(self, b: str) -> int:
+    def JUMP(self, b: JumpTarget) -> int:
         """JUMP b: set location counter to instruction labeled b"""
         return self.program.jumptable[b]
 
-    def JGTZ(self, b: str) -> int:
+    def JGTZ(self, b: JumpTarget) -> int:
         """JGTZ b: conditionally set location counter to instruction labeled b
 
         If c(0) > 0: set location counter to instruction labeled b
@@ -212,7 +157,7 @@ class RAM:
         else:
             return self.location_counter + 1
 
-    def JZERO(self, b: str) -> int:
+    def JZERO(self, b: JumpTarget) -> int:
         """JZERO b: conditionally set location counter to instruction labeled b
 
         If c(0) = 0: set location counter to instruction labeled b
@@ -239,7 +184,7 @@ class RAM:
         """c(i) ← v: Set the value at register i to v."""
         self.memory_registers[i] = v
 
-    def v(self, a: str) -> int:
+    def v(self, a: Operand) -> int:
         """v(a): Return the value for address a.
 
         Address can be one of:
@@ -249,9 +194,9 @@ class RAM:
                (indirect address)
 
         """
-        if a.startswith("="):
-            return int(a[1:])
-        elif a.startswith("*"):
-            return self.c(self.c(int(a[1:])))
+        if a.flag == OperandFlag.literal:
+            return a.value
+        elif a.flag == OperandFlag.indirect:
+            return self.c(self.c(a.value))
         else:
-            return self.c(int(a))
+            return self.c(a.value)

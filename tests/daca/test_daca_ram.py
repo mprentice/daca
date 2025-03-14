@@ -2,12 +2,13 @@ from pathlib import Path
 
 import pytest
 
-from daca.ram import RAM, parse
+from daca.common import ParseError
+from daca.ram import RAM, parse, tokenize
 
 
 @pytest.fixture
-def n_pow_n_file() -> Path:
-    return Path(__file__).parent.parent / "examples" / "ch1" / "n_pow_n.ram"
+def n_pow_n_file(pytestconfig) -> Path:
+    return Path(pytestconfig.rootdir) / "examples" / "ch1" / "n_pow_n.ram"
 
 
 @pytest.fixture
@@ -15,15 +16,29 @@ def n_pow_n(n_pow_n_file: Path) -> str:
     return n_pow_n_file.read_text()
 
 
+def test_tokenize_n_pow_n(n_pow_n: str):
+    toks = list(tokenize(n_pow_n))
+    assert len(toks) > 10
+
+
+def test_tokenize_error():
+    with pytest.raises(ParseError):
+        list(tokenize("STORE &1"))
+
+
 def test_program_parse(n_pow_n: str):
     p = parse(n_pow_n)
     assert p is not None
 
 
+def test_program_parse_error():
+    with pytest.raises(ParseError):
+        parse("STORE =1")
+
+
 def test_program_serialize(n_pow_n: str):
     p = parse(n_pow_n)
-    s = p.serialize()
-    assert p == parse(s)
+    assert p == parse(p.serialize())
 
 
 def test_ram(n_pow_n: str):
