@@ -2,14 +2,23 @@ import textwrap
 from argparse import ArgumentParser, FileType
 from dataclasses import dataclass, field
 from pprint import pprint
-from typing import Optional
+from typing import Iterable, Optional
+
+from daca.common import Token
 
 from .parser import parse, tokenize
 
 
 class CliArgumentParser(ArgumentParser):
     def __init__(self):
-        super().__init__(prog="palgol", description="Work with a pidgin ALGOL program")
+        super().__init__(prog="palgol", description="Run a pidgin ALGOL program")
+        self.add_argument(
+            "--no-execute",
+            "-n",
+            action="store_true",
+            default=False,
+            help="Only parse PROGRAM, don't execute it.",
+        )
         self.add_argument(
             "--tokenize",
             "-t",
@@ -25,6 +34,13 @@ class CliArgumentParser(ArgumentParser):
             help="Show serialization of parsed PROGRAM",
         )
         self.add_argument(
+            "--compile",
+            "-c",
+            action="store_true",
+            default=False,
+            help="Show PROGRAM compiled to RAM",
+        )
+        self.add_argument(
             "--verbose",
             "-v",
             action="store_true",
@@ -32,16 +48,8 @@ class CliArgumentParser(ArgumentParser):
             help="Show verbose output for debugging",
         )
         self.add_argument(
-            "--compact",
-            "-c",
-            action="store_true",
-            default=False,
-            help="Show compact output in verbose mode (no pretty-print)",
-        )
-        self.add_argument(
             "program",
             type=FileType("r"),
-            nargs=1,
             help="Pidgin ALGOL program file",
             metavar="PROGRAM",
         )
@@ -63,32 +71,25 @@ class CliApp:
         )
 
         # input_tape = tuple(args.input)
-
-        program_text = args.program[0].read()
+        program_file = args.program
+        tokens: Iterable[Token] = tokenize(program_file)
 
         if args.tokenize:
-            toks = [t for t in tokenize(program_text)]
+            tokens = list(tokens)
             if args.verbose:
-                if args.compact:
-                    print(f"{toks}")
-                else:
-                    pprint(toks)
+                pprint(tokens)
             else:
-                tok_vals = [t.value for t in toks]
+                tok_vals = [t.value for t in tokens]
                 print(
                     "\n".join(textwrap.wrap("«" + "» «".join(tok_vals) + "»", width=80))
                 )
 
         if args.parse:
-            ast = parse(tokenize(program_text))
+            ast = parse(tokens)
             if args.verbose:
-                if args.compact:
-                    print(f"{ast}")
-                else:
-                    pprint(ast)
+                pprint(ast)
             else:
                 print(ast.serialize())
-        pass
 
 
 def main(argv: Optional[list[str]] = None) -> None:

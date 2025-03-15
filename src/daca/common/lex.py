@@ -22,8 +22,9 @@ class Token:
 
 class BaseLexer(abc.ABC):
     @abc.abstractmethod
-    def tokenize(self, input_stream: TextIO) -> Generator[Token, None, None]:
-        ...
+    def tokenize(
+        self, input_stream: str | StringIO | TextIO
+    ) -> Generator[Token, None, None]: ...
 
 
 @dataclass
@@ -31,7 +32,9 @@ class LineLexer(BaseLexer):
     line: int = 0
     column: int = 0
 
-    def tokenize(self, input_stream: str | TextIO) -> Generator[Token, None, None]:
+    def tokenize(
+        self, input_stream: str | TextIO | StringIO
+    ) -> Generator[Token, None, None]:
         inp = StringIO(input_stream) if isinstance(input_stream, str) else input_stream
         self.line = -1
         self.column = 0
@@ -42,8 +45,7 @@ class LineLexer(BaseLexer):
             yield from self.tokenize_line(s)
 
     @abc.abstractmethod
-    def tokenize_line(self, s: str) -> Generator[Token, None, None]:
-        ...
+    def tokenize_line(self, s: str) -> Generator[Token, None, None]: ...
 
 
 @dataclass

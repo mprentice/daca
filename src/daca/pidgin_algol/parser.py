@@ -1,9 +1,11 @@
 """Parser for Pidgin Algol."""
+
 import abc
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
+from io import StringIO
 from typing import Generator, Iterable, MutableSequence, Optional, TextIO
 
 from daca.common import (
@@ -30,9 +32,9 @@ class Keyword(StrEnum):
 class Tag(StrEnum):
     whitespace = r"\s+"
     keyword = "(" + "|".join([k.value for k in Keyword]) + ")"
-    symbol = r"[;=≠<≤>≥←+*/-]"
+    symbol = r"(\<=|>=|!=|\<-|[;=≠<≤>≥←+*/-])"
     literal_integer = r"\d+"
-    register = r"r\d+"
+    literal_id = r"\w+"
     error = r"."
 
 
@@ -48,7 +50,7 @@ class Lexer(SimpleRegexLineLexer):
         return super().filter_token(token)
 
 
-def tokenize(input_stream: str | TextIO) -> Generator[Token, None, None]:
+def tokenize(input_stream: str | StringIO | TextIO) -> Generator[Token, None, None]:
     yield from Lexer().tokenize(input_stream)
 
 
@@ -67,8 +69,7 @@ class BinaryOperator(StrEnum):
 
 class Expression(abc.ABC):
     @abc.abstractmethod
-    def serialize(self) -> str:
-        ...
+    def serialize(self) -> str: ...
 
 
 class UnaryExpression(Expression):
@@ -85,10 +86,10 @@ class LiteralExpression(UnaryExpression):
 
 @dataclass
 class VariableExpression(UnaryExpression):
-    id_: str
+    name: str
 
     def serialize(self) -> str:
-        return f"{self.id_}"
+        return f"{self.name}"
 
 
 @dataclass
@@ -103,16 +104,7 @@ class BinaryExpression(Expression):
 
 class Statement(abc.ABC):
     @abc.abstractmethod
-    def serialize(self) -> str:
-        ...
-
-
-class NullStatement(Statement):
-    def serialize(self) -> str:
-        return ";"
-
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}()"
+    def serialize(self) -> str: ...
 
 
 @dataclass
@@ -120,6 +112,16 @@ class BlockStatement(Statement):
     statements: MutableSequence[Statement] = field(default_factory=list)
 
     def serialize(self) -> str:
+        return (
+            "begin\n"
+            + ";\n".join(
+                [
+                    "\n".join(["    " + line for line in b.serialize().split("\n")])
+                    for b in self.statements
+                ]
+            )
+            + "\nend"
+        )
         s = "\n".join(
             ["begin"]
             + [
@@ -206,7 +208,7 @@ class Parser(BaseParser[AST]):
         init=False, default_factory=lambda: BufferedTokenStream([])
     )
 
-    def parse(self, token_stream: str | TextIO | Iterable[Token]) -> AST:
+    def parse(self, token_stream: str | StringIO | TextIO | Iterable[Token]) -> AST:
         if isinstance(token_stream, str) or hasattr(token_stream, "read"):
             b = BufferedTokenStream(self.lexer.tokenize(token_stream))  # type: ignore
             self._token_stream = b
@@ -219,6 +221,11 @@ class Parser(BaseParser[AST]):
         block = BlockStatement()
         while self.peek().value != Keyword.end.value:
             block.statements.append(self.read_statement())
+            try:
+                self.assert_token(self.peek(), Tag.symbol, ";")
+                self.next()
+            except ParseError:
+                self.assert_token(self.peek(), Tag.keyword, Keyword.end.value)
         self.assert_token(self.next(), Tag.keyword, Keyword.end.value)
         return block
 
@@ -234,11 +241,8 @@ class Parser(BaseParser[AST]):
             return self.read_while()
         elif top.value == Keyword.write.value:
             return self.read_write()
-        elif top.tag == Tag.register.name:
+        elif top.tag == Tag.literal_id.name:
             return self.read_assignment()
-        elif top.value == ";":
-            self.next()
-            return NullStatement()
         else:
             raise ParseError(line=top.line, column=top.column, value=top)
 
@@ -279,32 +283,36 @@ class Parser(BaseParser[AST]):
 
     def read_assignment(self) -> AssignmentStatement:
         tgt = self.next()
-        self.assert_token(tgt, Tag.register)
-        self.assert_token(self.next(), Tag.symbol, "←")
+        self.assert_token(tgt, Tag.literal_id)
+        self.assert_token(self.next(), Tag.symbol, ["←", "<-"])
         exp = self.read_expression()
         return AssignmentStatement(VariableExpression(tgt.value), exp)
 
     def read_expression(self) -> Expression:
-        top2 = self.peek2()
-        if top2.value in {k.value for k in BinaryOperator}:
-            return self.read_binary_expression()
+        self._token_stream.checkpoint()
+        try:
+            exp = self.read_binary_expression()
+            self._token_stream.commit()
+            return exp
+        except ParseError:
+            self._token_stream.rollback()
         return self.read_unary_expression()
 
     def read_unary_expression(self) -> UnaryExpression:
         top = self.peek()
-        if top.tag == Tag.register.name:
+        if top.tag == Tag.literal_id.name:
             return self.read_variable_expression()
         elif top.tag == Tag.literal_integer.name:
             return self.read_literal_expression()
         else:
             raise ParseError(
                 f"Unexpected token: {top} "
-                "(Expected: {Tag.id_valueue} or {Tag.literal_intvalueue})"
+                f"(Expected: {Tag.literal_id.value} or {Tag.literal_integer.value})"
             )
 
     def read_variable_expression(self) -> VariableExpression:
         tok = self.next()
-        self.assert_token(tok, Tag.register)
+        self.assert_token(tok, Tag.literal_id)
         return VariableExpression(tok.value)
 
     def read_literal_expression(self) -> LiteralExpression:
@@ -316,7 +324,15 @@ class Parser(BaseParser[AST]):
         left = self.read_unary_expression()
         tok = self.next()
         try:
-            operator = BinaryOperator(tok.value)
+            v = tok.value
+            if v == "<=":
+                operator = BinaryOperator.le
+            elif v == ">=":
+                operator = BinaryOperator.ge
+            elif v == "!=":
+                operator = BinaryOperator.not_equals
+            else:
+                operator = BinaryOperator(tok.value)
         except ValueError as ex:
             raise ParseError(
                 f"Unexpected token: {tok} (Expected binary operator)"
@@ -333,8 +349,14 @@ class Parser(BaseParser[AST]):
     def peek2(self) -> Token:
         return self._token_stream.peek(2)
 
-    def assert_token(self, token: Token, tag: Tag, value: Optional[str] = None) -> None:
-        if token.tag != tag.name or (value and token.value != value):
+    def assert_token(
+        self, token: Token, tag: Tag, value: Optional[str | list[str]] = None
+    ) -> None:
+        if token.tag != tag.name or not (
+            value is None
+            or token.value == value
+            or (not isinstance(value, str) and token.value in value)
+        ):
             raise ParseError(
                 f"Unexpected token: {token} (Expected: {tag.name} ({value}))",
                 line=token.line,
@@ -343,5 +365,5 @@ class Parser(BaseParser[AST]):
             )
 
 
-def parse(token_stream: Iterable[Token]) -> AST:
+def parse(token_stream: str | StringIO | TextIO | Iterable[Token]) -> AST:
     return Parser().parse(token_stream)

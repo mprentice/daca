@@ -1,7 +1,9 @@
 """Parser for RAM program."""
+
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
+from io import StringIO
 from typing import Generator, Iterable, Optional, TextIO
 
 from daca.common import (
@@ -38,7 +40,7 @@ class Lexer(SimpleRegexLineLexer):
         return super().filter_token(token)
 
 
-def tokenize(input_stream: str | TextIO) -> Generator[Token, None, None]:
+def tokenize(input_stream: str | StringIO | TextIO) -> Generator[Token, None, None]:
     yield from Lexer().tokenize(input_stream)
 
 
@@ -46,11 +48,12 @@ def tokenize(input_stream: str | TextIO) -> Generator[Token, None, None]:
 class Parser(BaseParser[Program]):
     lexer: Lexer = field(default_factory=Lexer)
 
-    def parse(self, token_stream: str | TextIO | Iterable[Token]) -> Program:
+    def parse(self, token_stream: str | StringIO | TextIO | Iterable[Token]) -> Program:
         if isinstance(token_stream, str) or hasattr(token_stream, "read"):
             b = BufferedTokenStream(self.lexer.tokenize(token_stream))  # type: ignore
-            return self._parse_token_stream(b)
-        return self._parse_token_stream(BufferedTokenStream(token_stream))
+        else:
+            b = BufferedTokenStream(token_stream)
+        return self._parse_token_stream(b)
 
     def _parse_token_stream(self, ts: BufferedTokenStream) -> Program:
         index = 0
@@ -144,5 +147,5 @@ class Parser(BaseParser[Program]):
         raise ParseError(line=tok.line, column=tok.column, value=tok)
 
 
-def parse(s: str | TextIO) -> Program:
+def parse(s: str | StringIO | TextIO | Iterable[Token]) -> Program:
     return Parser().parse(s)
