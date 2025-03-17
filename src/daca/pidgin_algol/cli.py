@@ -5,6 +5,7 @@ from pprint import pprint
 from typing import Iterable, Optional
 
 from daca.common import Token
+from daca.ram import RAM
 
 from .compiler import compile_to_ram
 from .parser import parse, tokenize
@@ -93,12 +94,29 @@ class CliApp:
             else:
                 print(ast.serialize())
 
+        ram_program = compile_to_ram(ast)
+
         if args.compile:
-            p = compile_to_ram(ast)
             if args.verbose:
-                pprint(p)
+                pprint(ram_program)
             else:
-                print(p.serialize())
+                print(ram_program.serialize())
+
+        if args.no_execute:
+            return
+
+        input_tape = tuple(args.input)
+        ram = RAM(ram_program, input_tape)
+
+        ram.run()
+
+        if args.verbose:
+            print(f"Input tape: {input_tape}")
+            print(f"# of steps: {ram.step_counter}")
+            print(f"Halted: {ram.halted}")
+            print(f"Output tape: {ram.output_tape}")
+        else:
+            print(" ".join([str(i) for i in ram.output_tape]))
 
 
 def main(argv: Optional[list[str]] = None) -> None:

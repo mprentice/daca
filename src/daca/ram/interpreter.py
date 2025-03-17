@@ -122,16 +122,22 @@ class RAM:
         READ *i: c(c(i)) ← current input tape symbol
 
         Input tape head moves one square right.
+
+        If reading past the end of the input tape, the input tape symbol is
+        assumed to be 0.
         """
         try:
-            if i.flag == OperandFlag.indirect:
-                self.set_c(self.c(i.value), self.input_tape[self.read_head])
-            else:
-                self.set_c(i.value, self.input_tape[self.read_head])
-        except IndexError as ex:
-            self.halted = True
-            raise ReadError("Tried to read past end of input tape.") from ex
+            space = self.input_tape[self.read_head]
+        except IndexError:
+            space = 0
+
         self.read_head += 1
+
+        if i.flag == OperandFlag.indirect:
+            self.set_c(self.c(i.value), space)
+        else:
+            self.set_c(i.value, space)
+
         return self.location_counter + 1
 
     def WRITE(self, a: Operand) -> int:

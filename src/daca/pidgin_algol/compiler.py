@@ -3,7 +3,15 @@ from io import StringIO
 from typing import TextIO
 
 from daca.common import CompileError
-from daca.ram import Instruction, JumpTarget, Opcode, Operand, OperandFlag, Program
+from daca.ram import (
+    Address,
+    Instruction,
+    JumpTarget,
+    Opcode,
+    Operand,
+    OperandFlag,
+    Program,
+)
 
 from .parser import (
     AST,
@@ -22,6 +30,30 @@ from .parser import (
     WhileStatement,
     WriteStatement,
 )
+
+
+def is_comparison_operator(op: BinaryOperator) -> bool:
+    return op in (
+        BinaryOperator.equals,
+        BinaryOperator.not_equals,
+        BinaryOperator.lt,
+        BinaryOperator.le,
+        BinaryOperator.gt,
+        BinaryOperator.ge,
+    )
+
+
+def is_arithmetic_operator(op: BinaryOperator) -> bool:
+    return op in (
+        BinaryOperator.plus,
+        BinaryOperator.minus,
+        BinaryOperator.mult,
+        BinaryOperator.div,
+    )
+
+
+def is_zero(exp: Expression) -> bool:
+    return isinstance(exp, LiteralExpression) and exp.value == 0
 
 
 @dataclass
@@ -202,34 +234,61 @@ class RamCompiler:
         )
 
     def compile_binary_expression(self, exp: BinaryExpression) -> list[Instruction]:
-        # Calculate RHS
-        insts = self.compile_expression(exp.right)
+        insts: list[Instruction] = []
 
-        # Store the result temporarily
-        register = len(self._var_map) + 1
-        self._var_map[f"<<RESERVE REGISTER {register}"] = register
-        insts.append(
-            Instruction(
-                opcode=Opcode.STORE,
-                address=Operand(value=register, flag=OperandFlag.direct),
-            )
-        )
-        self._pc += 1
+        # Small optimization if RHS is a simple literal or variable
+        if isinstance(exp.right, LiteralExpression):
+            address = Operand(value=exp.right.value, flag=OperandFlag.literal)
+        elif isinstance(exp.right, VariableExpression):
+            name = exp.right.name
+            if name not in self._var_map:
+                self._var_map[name] = len(self._var_map) + 1
+            register = self._var_map[name]
+            address = Operand(value=register, flag=OperandFlag.direct)
+        else:
+            # Calculate RHS
+            insts.extend(self.compile_expression(exp.right))
+
+            # Store the result temporarily
+            register = len(self._var_map) + 1
+            self._var_map[f"<<RESERVE REGISTER {register}"] = register
+            address = Operand(value=register, flag=OperandFlag.direct)
+
+            insts.append(Instruction(opcode=Opcode.STORE, address=address))
+            self._pc += 1
 
         # Calculate LHS
         insts.extend(self.compile_expression(exp.left))
 
         # Apply binary operator
         op = exp.operator
-        if op == BinaryOperator.equals:
-            self._comp_counter += 1
-            insts.append(
-                Instruction(
-                    opcode=Opcode.SUB,
-                    address=Operand(value=register, flag=OperandFlag.direct),
-                )
+        if is_comparison_operator(op):
+            insts.extend(self._compile_comparison_expression(exp, address))
+        elif is_arithmetic_operator(op):
+            insts.extend(self._compile_arithmetic_expression(exp, address))
+        else:
+            raise CompileError(
+                message=f"Invalid binary operator {op} for binary expression {exp}",
+                line=exp.line,
+                column=exp.column,
+                value=op,
             )
-            self._pc += 4
+
+        return insts
+
+    def _compile_comparison_expression(
+        self, exp: BinaryExpression, address: Address
+    ) -> list[Instruction]:
+        insts: list[Instruction] = []
+        op = exp.operator
+        is_zero_flag = is_zero(exp.right)
+        self._comp_counter += 1
+
+        if op == BinaryOperator.equals:
+            self._pc += 3
+            if not is_zero_flag:
+                insts.append(Instruction(opcode=Opcode.SUB, address=address))
+                self._pc += 1
             jt = self._update_jumptable(f"zero{self._comp_counter}")
             insts.append(Instruction(opcode=Opcode.JZERO, address=jt))
             insts.append(
@@ -248,14 +307,10 @@ class RamCompiler:
                 )
             )
         elif op == BinaryOperator.not_equals:
-            self._comp_counter += 1
-            insts.append(
-                Instruction(
-                    opcode=Opcode.SUB,
-                    address=Operand(value=register, flag=OperandFlag.direct),
-                )
-            )
-            self._pc += 4
+            self._pc += 3
+            if not is_zero_flag:
+                insts.append(Instruction(opcode=Opcode.SUB, address=address))
+                self._pc += 1
             jt = self._update_jumptable(f"zero{self._comp_counter}")
             insts.append(Instruction(opcode=Opcode.JZERO, address=jt))
             insts.append(
@@ -274,20 +329,16 @@ class RamCompiler:
                 )
             )
         elif op == BinaryOperator.lt:
-            self._comp_counter += 1
-            insts.append(
-                Instruction(
-                    opcode=Opcode.SUB,
-                    address=Operand(value=register, flag=OperandFlag.direct),
-                )
-            )
+            self._pc += 4
+            if not is_zero_flag:
+                insts.append(Instruction(opcode=Opcode.SUB, address=address))
+                self._pc += 1
             insts.append(
                 Instruction(
                     opcode=Opcode.MULT,
                     address=Operand(value=-1, flag=OperandFlag.literal),
                 )
             )
-            self._pc += 5
             jt = self._update_jumptable(f"gtz{self._comp_counter}")
             insts.append(Instruction(opcode=Opcode.JGTZ, address=jt))
             insts.append(
@@ -306,14 +357,10 @@ class RamCompiler:
                 )
             )
         elif op == BinaryOperator.le:
-            self._comp_counter += 1
-            insts.append(
-                Instruction(
-                    opcode=Opcode.SUB,
-                    address=Operand(value=register, flag=OperandFlag.direct),
-                )
-            )
-            self._pc += 4
+            self._pc += 3
+            if not is_zero_flag:
+                insts.append(Instruction(opcode=Opcode.SUB, address=address))
+                self._pc += 1
             jt = self._update_jumptable(f"gtz{self._comp_counter}")
             insts.append(Instruction(opcode=Opcode.JGTZ, address=jt))
             insts.append(
@@ -332,14 +379,10 @@ class RamCompiler:
                 )
             )
         elif op == BinaryOperator.gt:
-            self._comp_counter += 1
-            insts.append(
-                Instruction(
-                    opcode=Opcode.SUB,
-                    address=Operand(value=register, flag=OperandFlag.direct),
-                )
-            )
-            self._pc += 4
+            self._pc += 3
+            if not is_zero_flag:
+                insts.append(Instruction(opcode=Opcode.SUB, address=address))
+                self._pc += 1
             jt = self._update_jumptable(f"gtz{self._comp_counter}")
             insts.append(Instruction(opcode=Opcode.JGTZ, address=jt))
             insts.append(
@@ -358,20 +401,17 @@ class RamCompiler:
                 )
             )
         elif op == BinaryOperator.ge:
-            self._comp_counter += 1
-            insts.append(
-                Instruction(
-                    opcode=Opcode.SUB,
-                    address=Operand(value=register, flag=OperandFlag.direct),
-                )
-            )
+            self._pc += 4
+            if not is_zero_flag:
+                insts.append(Instruction(opcode=Opcode.SUB, address=address))
+                self._pc += 1
+
             insts.append(
                 Instruction(
                     opcode=Opcode.MULT,
                     address=Operand(value=-1, flag=OperandFlag.literal),
                 )
             )
-            self._pc += 5
             jt = self._update_jumptable(f"gtz{self._comp_counter}")
             insts.append(Instruction(opcode=Opcode.JGTZ, address=jt))
             insts.append(
@@ -389,46 +429,58 @@ class RamCompiler:
                     address=Operand(value=1, flag=OperandFlag.literal),
                 )
             )
-        elif op == BinaryOperator.plus:
-            insts.append(
-                Instruction(
-                    opcode=Opcode.ADD,
-                    address=Operand(value=register, flag=OperandFlag.direct),
-                )
-            )
-            self._pc += 1
-        elif op == BinaryOperator.minus:
-            insts.append(
-                Instruction(
-                    opcode=Opcode.SUB,
-                    address=Operand(value=register, flag=OperandFlag.direct),
-                )
-            )
-            self._pc += 1
-        elif op == BinaryOperator.mult:
-            insts.append(
-                Instruction(
-                    opcode=Opcode.MULT,
-                    address=Operand(value=register, flag=OperandFlag.direct),
-                )
-            )
-            self._pc += 1
-        elif op == BinaryOperator.div:
-            insts.append(
-                Instruction(
-                    opcode=Opcode.DIV,
-                    address=Operand(value=register, flag=OperandFlag.direct),
-                )
-            )
-            self._pc += 1
         else:
             raise CompileError(
-                message=f"Invalid binary operator {op} for binary expression {exp}",
+                message=f"Invalid binary operator {op} for comparison expression {exp}",
                 line=exp.line,
                 column=exp.column,
                 value=op,
             )
 
+        return insts
+
+    def _compile_arithmetic_expression(
+        self, exp: BinaryExpression, address: Address
+    ) -> list[Instruction]:
+        insts: list[Instruction] = []
+        op = exp.operator
+        is_zero_flag = is_zero(exp.right)
+        if op == BinaryOperator.plus:
+            if not is_zero_flag:
+                insts.append(Instruction(opcode=Opcode.ADD, address=address))
+                self._pc += 1
+        elif op == BinaryOperator.minus:
+            if not is_zero_flag:
+                insts.append(Instruction(opcode=Opcode.SUB, address=address))
+                self._pc += 1
+        elif op == BinaryOperator.mult:
+            if is_zero_flag:
+                insts.append(
+                    Instruction(
+                        opcode=Opcode.LOAD,
+                        address=Operand(value=0, flag=OperandFlag.literal),
+                    )
+                )
+            else:
+                insts.append(Instruction(opcode=Opcode.MULT, address=address))
+            self._pc += 1
+        elif op == BinaryOperator.div:
+            if is_zero_flag:
+                raise CompileError(
+                    message=f"Attempt to divide by literal 0 in {exp}",
+                    line=exp.line,
+                    column=exp.column,
+                    value=address,
+                )
+            insts.append(Instruction(opcode=Opcode.DIV, address=address))
+            self._pc += 1
+        else:
+            raise CompileError(
+                message=f"Invalid binary operator {op} for arithmetic expression {exp}",
+                line=exp.line,
+                column=exp.column,
+                value=op,
+            )
         return insts
 
     def _update_jumptable(self, tgt: str) -> JumpTarget:
