@@ -6,6 +6,7 @@ from typing import Iterable, Optional
 
 from daca.common import Token
 
+from .compiler import compile_to_ram
 from .parser import parse, tokenize
 
 
@@ -84,12 +85,20 @@ class CliApp:
                     "\n".join(textwrap.wrap("«" + "» «".join(tok_vals) + "»", width=80))
                 )
 
+        ast = parse(tokens)
+
         if args.parse:
-            ast = parse(tokens)
             if args.verbose:
                 pprint(ast)
             else:
                 print(ast.serialize())
+
+        if args.compile:
+            p = compile_to_ram(ast)
+            if args.verbose:
+                pprint(p)
+            else:
+                print(p.serialize())
 
 
 def main(argv: Optional[list[str]] = None) -> None:

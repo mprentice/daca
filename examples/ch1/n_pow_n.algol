@@ -8,7 +8,7 @@ begin
             while r3 > 0 do
                 begin
                     r2 ← r2 * r1;
-                    r3 ← r3 - r1
+                    r3 ← r3 - 1
                 end;
             write r2
         end

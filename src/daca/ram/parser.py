@@ -56,7 +56,7 @@ class Parser(BaseParser[Program]):
         return self._parse_token_stream(b)
 
     def _parse_token_stream(self, ts: BufferedTokenStream) -> Program:
-        index = 0
+        program_counter = 0
         jumptable: dict[JumpTarget, int] = {}
         instructions = []
 
@@ -65,14 +65,14 @@ class Parser(BaseParser[Program]):
                 tok = next(ts)
                 if tok.tag == Tag.keyword.name and tok.value == Opcode.HALT.name:
                     instructions.append(Instruction(Opcode.HALT))
-                    index += 1
+                    program_counter += 1
                 elif ts.peek().tag == Tag.colon.name:
                     next(ts)
-                    jumptable[JumpTarget(tok.value)] = index
+                    jumptable[JumpTarget(tok.value)] = program_counter
                 elif tok.tag == Tag.keyword.name:
                     inst = self._parse_instruction(tok, ts)
                     instructions.append(inst)
-                    index += 1
+                    program_counter += 1
                 else:
                     raise ParseError(line=tok.line, column=tok.column, value=tok)
 
