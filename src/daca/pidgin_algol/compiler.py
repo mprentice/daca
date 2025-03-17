@@ -282,153 +282,45 @@ class RamCompiler:
         insts: list[Instruction] = []
         op = exp.operator
         is_zero_flag = is_zero(exp.right)
+        neg_one = Operand(value=-1, flag=OperandFlag.literal)
+        pos_one = Operand(value=1, flag=OperandFlag.literal)
+        zero = Operand(value=0, flag=OperandFlag.literal)
         self._comp_counter += 1
 
-        if op == BinaryOperator.equals:
+        def add_instructions(
+            with_mult: bool, jumper: Opcode, branch1_pos: bool
+        ) -> None:
             self._pc += 3
             if not is_zero_flag:
                 insts.append(Instruction(opcode=Opcode.SUB, address=address))
                 self._pc += 1
-            jt = self._update_jumptable(f"zero{self._comp_counter}")
-            insts.append(Instruction(opcode=Opcode.JZERO, address=jt))
-            insts.append(
-                Instruction(
-                    opcode=Opcode.LOAD,
-                    address=Operand(value=0, flag=OperandFlag.literal),
-                )
-            )
-            self._pc += 1
-            jt = self._update_jumptable(f"endcmp{self._comp_counter}")
-            insts.append(Instruction(opcode=Opcode.JUMP, address=jt))
-            insts.append(
-                Instruction(
-                    opcode=Opcode.LOAD,
-                    address=Operand(value=1, flag=OperandFlag.literal),
-                )
-            )
-        elif op == BinaryOperator.not_equals:
-            self._pc += 3
-            if not is_zero_flag:
-                insts.append(Instruction(opcode=Opcode.SUB, address=address))
-                self._pc += 1
-            jt = self._update_jumptable(f"zero{self._comp_counter}")
-            insts.append(Instruction(opcode=Opcode.JZERO, address=jt))
-            insts.append(
-                Instruction(
-                    opcode=Opcode.LOAD,
-                    address=Operand(value=1, flag=OperandFlag.literal),
-                )
-            )
-            self._pc += 1
-            jt = self._update_jumptable(f"endcmp{self._comp_counter}")
-            insts.append(Instruction(opcode=Opcode.JUMP, address=jt))
-            insts.append(
-                Instruction(
-                    opcode=Opcode.LOAD,
-                    address=Operand(value=0, flag=OperandFlag.literal),
-                )
-            )
-        elif op == BinaryOperator.lt:
-            self._pc += 4
-            if not is_zero_flag:
-                insts.append(Instruction(opcode=Opcode.SUB, address=address))
-                self._pc += 1
-            insts.append(
-                Instruction(
-                    opcode=Opcode.MULT,
-                    address=Operand(value=-1, flag=OperandFlag.literal),
-                )
-            )
-            jt = self._update_jumptable(f"gtz{self._comp_counter}")
-            insts.append(Instruction(opcode=Opcode.JGTZ, address=jt))
-            insts.append(
-                Instruction(
-                    opcode=Opcode.LOAD,
-                    address=Operand(value=1, flag=OperandFlag.literal),
-                )
-            )
-            self._pc += 1
-            jt = self._update_jumptable(f"endcmp{self._comp_counter}")
-            insts.append(Instruction(opcode=Opcode.JUMP, address=jt))
-            insts.append(
-                Instruction(
-                    opcode=Opcode.LOAD,
-                    address=Operand(value=0, flag=OperandFlag.literal),
-                )
-            )
-        elif op == BinaryOperator.le:
-            self._pc += 3
-            if not is_zero_flag:
-                insts.append(Instruction(opcode=Opcode.SUB, address=address))
-                self._pc += 1
-            jt = self._update_jumptable(f"gtz{self._comp_counter}")
-            insts.append(Instruction(opcode=Opcode.JGTZ, address=jt))
-            insts.append(
-                Instruction(
-                    opcode=Opcode.LOAD,
-                    address=Operand(value=1, flag=OperandFlag.literal),
-                )
-            )
-            self._pc += 1
-            jt = self._update_jumptable(f"endcmp{self._comp_counter}")
-            insts.append(Instruction(opcode=Opcode.JUMP, address=jt))
-            insts.append(
-                Instruction(
-                    opcode=Opcode.LOAD,
-                    address=Operand(value=0, flag=OperandFlag.literal),
-                )
-            )
-        elif op == BinaryOperator.gt:
-            self._pc += 3
-            if not is_zero_flag:
-                insts.append(Instruction(opcode=Opcode.SUB, address=address))
-                self._pc += 1
-            jt = self._update_jumptable(f"gtz{self._comp_counter}")
-            insts.append(Instruction(opcode=Opcode.JGTZ, address=jt))
-            insts.append(
-                Instruction(
-                    opcode=Opcode.LOAD,
-                    address=Operand(value=0, flag=OperandFlag.literal),
-                )
-            )
-            self._pc += 1
-            jt = self._update_jumptable(f"endcmp{self._comp_counter}")
-            insts.append(Instruction(opcode=Opcode.JUMP, address=jt))
-            insts.append(
-                Instruction(
-                    opcode=Opcode.LOAD,
-                    address=Operand(value=1, flag=OperandFlag.literal),
-                )
-            )
-        elif op == BinaryOperator.ge:
-            self._pc += 4
-            if not is_zero_flag:
-                insts.append(Instruction(opcode=Opcode.SUB, address=address))
+            if with_mult:
+                insts.append(Instruction(opcode=Opcode.MULT, address=neg_one))
                 self._pc += 1
 
-            insts.append(
-                Instruction(
-                    opcode=Opcode.MULT,
-                    address=Operand(value=-1, flag=OperandFlag.literal),
-                )
-            )
-            jt = self._update_jumptable(f"gtz{self._comp_counter}")
-            insts.append(Instruction(opcode=Opcode.JGTZ, address=jt))
-            insts.append(
-                Instruction(
-                    opcode=Opcode.LOAD,
-                    address=Operand(value=0, flag=OperandFlag.literal),
-                )
-            )
+            lbl = "zero" if jumper == Opcode.JZERO else "gtz"
+            jt = self._update_jumptable(f"{lbl}{self._comp_counter}")
+            insts.append(Instruction(opcode=jumper, address=jt))
+            write_val = pos_one if branch1_pos else zero
+            insts.append(Instruction(opcode=Opcode.LOAD, address=write_val))
             self._pc += 1
             jt = self._update_jumptable(f"endcmp{self._comp_counter}")
             insts.append(Instruction(opcode=Opcode.JUMP, address=jt))
-            insts.append(
-                Instruction(
-                    opcode=Opcode.LOAD,
-                    address=Operand(value=1, flag=OperandFlag.literal),
-                )
-            )
+            write_val = zero if branch1_pos else pos_one
+            insts.append(Instruction(opcode=Opcode.LOAD, address=write_val))
+
+        if op == BinaryOperator.equals:
+            add_instructions(with_mult=False, jumper=Opcode.JZERO, branch1_pos=False)
+        elif op == BinaryOperator.not_equals:
+            add_instructions(with_mult=False, jumper=Opcode.JZERO, branch1_pos=True)
+        elif op == BinaryOperator.lt:
+            add_instructions(with_mult=True, jumper=Opcode.JGTZ, branch1_pos=True)
+        elif op == BinaryOperator.le:
+            add_instructions(with_mult=False, jumper=Opcode.JGTZ, branch1_pos=True)
+        elif op == BinaryOperator.gt:
+            add_instructions(with_mult=False, jumper=Opcode.JGTZ, branch1_pos=False)
+        elif op == BinaryOperator.ge:
+            add_instructions(with_mult=True, jumper=Opcode.JGTZ, branch1_pos=False)
         else:
             raise CompileError(
                 message=f"Invalid binary operator {op} for comparison expression {exp}",
