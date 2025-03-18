@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
-from io import StringIO
-from typing import TextIO
+from io import TextIOBase
 
 from daca.common import CompileError
 from daca.ram import (
@@ -67,7 +66,7 @@ class RamCompiler:
     _while_counter: int = 0
     _comp_counter: int = 0
 
-    def compile(self, p: str | StringIO | TextIO | AST) -> Program:
+    def compile(self, p: str | TextIOBase | AST) -> Program:
         ast: AST = p if isinstance(p, AST) else self.parser.parse(p)
         self._var_map.clear()
         self._jumptable.clear()
@@ -386,5 +385,5 @@ class RamCompiler:
         return jt
 
 
-def compile_to_ram(program: str | StringIO | TextIO | AST) -> Program:
+def compile_to_ram(program: str | TextIOBase | AST) -> Program:
     return RamCompiler().compile(program)

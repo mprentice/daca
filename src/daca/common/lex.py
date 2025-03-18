@@ -4,8 +4,8 @@ from collections import deque
 from collections.abc import Generator, Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
 from functools import cached_property
-from io import StringIO
-from typing import Optional, TextIO
+from io import StringIO, TextIOBase
+from typing import Optional
 
 
 @dataclass
@@ -23,7 +23,7 @@ class Token:
 class BaseLexer(abc.ABC):
     @abc.abstractmethod
     def tokenize(
-        self, input_stream: str | StringIO | TextIO
+        self, input_stream: str | TextIOBase
     ) -> Generator[Token, None, None]: ...
 
 
@@ -32,9 +32,7 @@ class LineLexer(BaseLexer):
     line: int = 0
     column: int = 0
 
-    def tokenize(
-        self, input_stream: str | TextIO | StringIO
-    ) -> Generator[Token, None, None]:
+    def tokenize(self, input_stream: str | TextIOBase) -> Generator[Token, None, None]:
         inp = StringIO(input_stream) if isinstance(input_stream, str) else input_stream
         self.line = -1
         self.column = 0

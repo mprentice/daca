@@ -5,8 +5,8 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
-from io import StringIO
-from typing import Generator, Iterable, Optional, TextIO
+from io import TextIOBase
+from typing import Generator, Iterable, Optional
 
 from daca.common import (
     BaseParser,
@@ -50,7 +50,7 @@ class Lexer(SimpleRegexLineLexer):
         return super().filter_token(token)
 
 
-def tokenize(input_stream: str | StringIO | TextIO) -> Generator[Token, None, None]:
+def tokenize(input_stream: str | TextIOBase) -> Generator[Token, None, None]:
     yield from Lexer().tokenize(input_stream)
 
 
@@ -201,7 +201,7 @@ class AssignmentStatement(Statement):
 
 @dataclass(frozen=True)
 class AST:
-    head: BlockStatement
+    head: Statement
 
     def serialize(self) -> str:
         return self.head.serialize()
@@ -216,29 +216,13 @@ class Parser(BaseParser[AST]):
         init=False, default_factory=lambda: BufferedTokenStream([])
     )
 
-    def parse(self, token_stream: str | StringIO | TextIO | Iterable[Token]) -> AST:
-        if isinstance(token_stream, str) or hasattr(token_stream, "read"):
-            b = BufferedTokenStream(self.lexer.tokenize(token_stream))  # type: ignore
+    def parse(self, token_stream: str | TextIOBase | Iterable[Token]) -> AST:
+        if isinstance(token_stream, (str, TextIOBase)):
+            b = BufferedTokenStream(self.lexer.tokenize(token_stream))
             self._token_stream = b
         else:
             self._token_stream = BufferedTokenStream(token_stream)
-        return AST(head=self.read_block())
-
-    def read_block(self) -> BlockStatement:
-        begin_token = self.next()
-        self.assert_token(begin_token, Tag.keyword, Keyword.begin.value)
-        stmts: list[Statement] = []
-        while self.peek().value != Keyword.end.value:
-            stmts.append(self.read_statement())
-            try:
-                self.assert_token(self.peek(), Tag.symbol, ";")
-                self.next()
-            except ParseError:
-                self.assert_token(self.peek(), Tag.keyword, Keyword.end.value)
-        self.assert_token(self.next(), Tag.keyword, Keyword.end.value)
-        return BlockStatement(
-            line=begin_token.line, column=begin_token.column, statements=stmts
-        )
+        return AST(head=self.read_statement())
 
     def read_statement(self) -> Statement:
         top = self.peek()
@@ -256,6 +240,22 @@ class Parser(BaseParser[AST]):
             return self.read_assignment()
         else:
             raise ParseError(line=top.line, column=top.column, value=top)
+
+    def read_block(self) -> BlockStatement:
+        begin_token = self.next()
+        self.assert_token(begin_token, Tag.keyword, Keyword.begin.value)
+        stmts: list[Statement] = []
+        while self.peek().value != Keyword.end.value:
+            stmts.append(self.read_statement())
+            try:
+                self.assert_token(self.peek(), Tag.symbol, ";")
+                self.next()
+            except ParseError:
+                self.assert_token(self.peek(), Tag.keyword, Keyword.end.value)
+        self.assert_token(self.next(), Tag.keyword, Keyword.end.value)
+        return BlockStatement(
+            line=begin_token.line, column=begin_token.column, statements=stmts
+        )
 
     def read_read(self) -> ReadStatement:
         read_token = self.next()
@@ -410,5 +410,5 @@ class Parser(BaseParser[AST]):
             )
 
 
-def parse(token_stream: str | StringIO | TextIO | Iterable[Token]) -> AST:
+def parse(token_stream: str | TextIOBase | Iterable[Token]) -> AST:
     return Parser().parse(token_stream)
