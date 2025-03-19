@@ -179,16 +179,24 @@ class RamCompiler:
             )
 
     def _build_condition_instructions(
-        self, condition: BinaryExpression, body_label: str
-    ) -> list[Instruction]:
+        self, condition: Expression, body_label: str
+    ) -> tuple[list[Instruction], ConditionAction]:
         # Build condition instructions list
-        if is_zero(condition.right):
-            cond_insts = self.compile_expression(condition.left)
-        else:
-            new_expr = replace(condition, operator=BinaryOperator.minus)
-            cond_insts = self.compile_expression(new_expr)
+        if isinstance(condition, BinaryExpression) and is_comparison_operator(
+            condition.operator
+        ):
+            if is_zero(condition.right):
+                cond_insts = self.compile_expression(condition.left)
+            else:
+                new_expr = replace(condition, operator=BinaryOperator.minus)
+                cond_insts = self.compile_expression(new_expr)
 
-        action: ConditionAction = self._comp_action[condition.operator]
+            action: ConditionAction = self._comp_action[condition.operator]
+        else:
+            # If it's not a BinaryExpression with comparison operator, assume
+            # an implied condition ≠ 0
+            cond_insts = self.compile_expression(condition)
+            action = self._comp_action[BinaryOperator.not_equals]
 
         if action.with_mult:
             cond_insts.append(self._mult_neg_one)
@@ -203,20 +211,16 @@ class RamCompiler:
             # We'll need to add a jump to else or endif
             self._pc += 1
 
-        return cond_insts
+        return (cond_insts, action)
 
     def compile_if_statement(self, s: IfStatement) -> list[Instruction]:
         self._if_counter += 1
         ic = self._if_counter
 
-        cond: BinaryExpression = self._assert_comparison(s.condition)
-
-        cond_insts = self._build_condition_instructions(cond, f"if{ic}")
+        cond_insts, action = self._build_condition_instructions(s.condition, f"if{ic}")
 
         # Build true body instructions list
         true_insts = self.compile_statement(s.true_body)
-
-        action: ConditionAction = self._comp_action[cond.operator]
 
         # Build false (else) body instructions list
         else_insts = []
@@ -261,17 +265,15 @@ class RamCompiler:
         # Need a jump target at the beginning of the while to repeat
         while_target = self._update_jumptable(f"while{wc}")
 
-        cond: BinaryExpression = self._assert_comparison(s.condition)
-
-        cond_insts = self._build_condition_instructions(cond, f"continue{wc}")
+        cond_insts, action = self._build_condition_instructions(
+            s.condition, f"continue{wc}"
+        )
 
         body_insts = self.compile_statement(s.body)
 
         # Add a jump to beginning of while
         body_insts.append(Instruction(opcode=Opcode.JUMP, address=while_target))
         self._pc += 1
-
-        action: ConditionAction = self._comp_action[cond.operator]
 
         # Add jump to end to condition instructions list
         end_target = self._update_jumptable(f"endwhile{wc}")
