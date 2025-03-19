@@ -92,3 +92,6 @@ class Program:
             line = f"{label:<{pad}}{inst.opcode.value:<7}{address}".rstrip()
             lines.append(line)
         return "\n".join(lines)
+
+    def __str__(self) -> str:
+        return self.serialize()

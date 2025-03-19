@@ -206,6 +206,9 @@ class AST:
     def serialize(self) -> str:
         return self.head.serialize()
 
+    def __str__(self) -> str:
+        return self.serialize()
+
 
 @dataclass
 class Parser(BaseParser[AST]):

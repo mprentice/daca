@@ -83,10 +83,7 @@ class CliApp:
         program = parse(tokens)
 
         if args.parse:
-            if args.verbose:
-                pprint(program)
-            else:
-                print(program.serialize())
+            print(program.serialize())
 
         if args.no_execute:
             return

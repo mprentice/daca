@@ -90,19 +90,21 @@ class CliApp:
 
         if args.parse:
             if args.verbose:
-                pprint(ast)
-            else:
-                print(ast.serialize())
+                print("Parsed pidgin algol program:\n")
+            print(ast.serialize())
+            print()
 
         ram_program = compile_to_ram(ast)
 
         if args.compile:
             if args.verbose:
-                pprint(ram_program)
-            else:
-                print(ram_program.serialize())
+                print("RAM instructions for compiled pidgin algol program:\n")
+            print(ram_program.serialize())
+            print()
 
         if args.no_execute:
+            if args.verbose:
+                print("--no-execute mode specified, skipping program execution")
             return
 
         input_tape = tuple(args.input)
@@ -111,6 +113,7 @@ class CliApp:
         ram.run()
 
         if args.verbose:
+            print("RAM execution complete.\n")
             print(f"Input tape: {input_tape}")
             print(f"# of steps: {ram.step_counter}")
             print(f"Halted: {ram.halted}")

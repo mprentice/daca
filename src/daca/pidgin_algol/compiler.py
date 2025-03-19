@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from io import TextIOBase
 
 from daca.common import CompileError
@@ -55,6 +55,13 @@ def is_zero(exp: Expression) -> bool:
     return isinstance(exp, LiteralExpression) and exp.value == 0
 
 
+@dataclass(frozen=True)
+class ConditionAction:
+    with_mult: bool
+    jump_to_body: bool
+    jumper: Opcode
+
+
 @dataclass
 class RamCompiler:
     parser: Parser = field(default_factory=Parser)
@@ -65,6 +72,34 @@ class RamCompiler:
     _if_counter: int = 0
     _while_counter: int = 0
     _comp_counter: int = 0
+    _comp_action: dict[BinaryOperator, ConditionAction] = field(
+        init=False, default_factory=dict
+    )
+    _pos_one: Operand = Operand(value=1, flag=OperandFlag.literal)
+    _zero: Operand = Operand(value=0, flag=OperandFlag.literal)
+    _mult_neg_one: Instruction = Instruction(
+        opcode=Opcode.MULT, address=Operand(value=-1, flag=OperandFlag.literal)
+    )
+
+    def __post_init__(self):
+        self._comp_action[BinaryOperator.equals] = ConditionAction(
+            with_mult=False, jump_to_body=True, jumper=Opcode.JZERO
+        )
+        self._comp_action[BinaryOperator.not_equals] = ConditionAction(
+            with_mult=False, jump_to_body=False, jumper=Opcode.JZERO
+        )
+        self._comp_action[BinaryOperator.lt] = ConditionAction(
+            with_mult=True, jump_to_body=True, jumper=Opcode.JGTZ
+        )
+        self._comp_action[BinaryOperator.le] = ConditionAction(
+            with_mult=False, jump_to_body=False, jumper=Opcode.JGTZ
+        )
+        self._comp_action[BinaryOperator.gt] = ConditionAction(
+            with_mult=False, jump_to_body=True, jumper=Opcode.JGTZ
+        )
+        self._comp_action[BinaryOperator.ge] = ConditionAction(
+            with_mult=True, jump_to_body=False, jumper=Opcode.JGTZ
+        )
 
     def compile(self, p: str | TextIOBase | AST) -> Program:
         ast: AST = p if isinstance(p, AST) else self.parser.parse(p)
@@ -124,17 +159,64 @@ class RamCompiler:
         else:
             raise CompileError(line=s.line, column=s.column, value=s.value)
 
+    def _assert_comparison(self, condition: Expression) -> BinaryExpression:
+        if isinstance(condition, BinaryExpression):
+            if is_comparison_operator(condition.operator):
+                return condition
+            else:
+                raise CompileError(
+                    message=f"operator must be a comparison in {condition}",
+                    line=condition.line,
+                    column=condition.column,
+                    value=condition.operator,
+                )
+        else:
+            raise CompileError(
+                message=f"condition {condition} must be a BinaryExpression",
+                line=condition.line,
+                column=condition.column,
+                value=condition,
+            )
+
+    def _build_condition_instructions(
+        self, condition: BinaryExpression, body_label: str
+    ) -> list[Instruction]:
+        # Build condition instructions list
+        if is_zero(condition.right):
+            cond_insts = self.compile_expression(condition.left)
+        else:
+            new_expr = replace(condition, operator=BinaryOperator.minus)
+            cond_insts = self.compile_expression(new_expr)
+
+        action: ConditionAction = self._comp_action[condition.operator]
+
+        if action.with_mult:
+            cond_insts.append(self._mult_neg_one)
+            self._pc += 1
+
+        if action.jump_to_body:
+            # Add 2 b/c we'll need to add a jump to else or endif later
+            self._pc += 2
+            jt = self._update_jumptable(body_label)
+            cond_insts.append(Instruction(opcode=action.jumper, address=jt))
+        else:
+            # We'll need to add a jump to else or endif
+            self._pc += 1
+
+        return cond_insts
+
     def compile_if_statement(self, s: IfStatement) -> list[Instruction]:
         self._if_counter += 1
         ic = self._if_counter
 
-        # Build condition instructions list
-        cond_insts = self.compile_expression(s.condition)
-        # We'll need to add a jump to else or endif
-        self._pc += 1
+        cond: BinaryExpression = self._assert_comparison(s.condition)
+
+        cond_insts = self._build_condition_instructions(cond, f"if{ic}")
 
         # Build true body instructions list
         true_insts = self.compile_statement(s.true_body)
+
+        action: ConditionAction = self._comp_action[cond.operator]
 
         # Build false (else) body instructions list
         else_insts = []
@@ -146,7 +228,12 @@ class RamCompiler:
 
             # Add jump to else body to condition instructions list
             jt = self._update_jumptable(f"else{ic}")
-            cond_insts.append(Instruction(opcode=Opcode.JZERO, address=jt))
+            if action.jump_to_body:
+                # jumper jumped to body, so false needs to jump to else
+                cond_insts.append(Instruction(opcode=Opcode.JUMP, address=jt))
+            else:
+                # jumper needs to jump to else
+                cond_insts.append(Instruction(opcode=action.jumper, address=jt))
 
             # Build else body instructions list
             else_insts = self.compile_statement(s.else_body)
@@ -158,7 +245,12 @@ class RamCompiler:
         else:
             # Add jump to end to condition instructions list
             jt = self._update_jumptable(f"endif{ic}")
-            cond_insts.append(Instruction(opcode=Opcode.JZERO, address=jt))
+            if action.jump_to_body:
+                # jumper jumped to body, so false needs to jump to end
+                cond_insts.append(Instruction(opcode=Opcode.JUMP, address=jt))
+            else:
+                # jumper needs to jump to end
+                cond_insts.append(Instruction(opcode=action.jumper, address=jt))
 
         return cond_insts + true_insts + else_insts
 
@@ -169,19 +261,26 @@ class RamCompiler:
         # Need a jump target at the beginning of the while to repeat
         while_target = self._update_jumptable(f"while{wc}")
 
-        # Build condition instructions list
-        cond_insts = self.compile_expression(s.condition)
-        # We'll need to add a jump to end while
-        self._pc += 1
+        cond: BinaryExpression = self._assert_comparison(s.condition)
+
+        cond_insts = self._build_condition_instructions(cond, f"continue{wc}")
 
         body_insts = self.compile_statement(s.body)
+
         # Add a jump to beginning of while
         body_insts.append(Instruction(opcode=Opcode.JUMP, address=while_target))
         self._pc += 1
 
+        action: ConditionAction = self._comp_action[cond.operator]
+
         # Add jump to end to condition instructions list
         end_target = self._update_jumptable(f"endwhile{wc}")
-        cond_insts.append(Instruction(opcode=Opcode.JZERO, address=end_target))
+        if action.jump_to_body:
+            # jumper jumped to body, so false needs to jump to end while
+            cond_insts.append(Instruction(opcode=Opcode.JUMP, address=end_target))
+        else:
+            # jumper needs to jump to end while
+            cond_insts.append(Instruction(opcode=action.jumper, address=end_target))
 
         return cond_insts + body_insts
 

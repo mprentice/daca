@@ -1,5 +1,6 @@
 from collections.abc import MutableMapping, MutableSequence, Sequence
 from dataclasses import dataclass, field
+from typing import Optional
 
 from .program import Instruction, JumpTarget, Opcode, Operand, OperandFlag, Program
 
@@ -35,7 +36,15 @@ class RAM:
     halted: bool = False
     step_counter: int = 0
 
-    def run(self) -> None:
+    def reset(self) -> None:
+        self.read_head = 0
+        self.location_count = 0
+        self.memory_registers = {0: 0}
+        self.output_tape = []
+        self.halted = False
+        self.step_counter = 0
+
+    def run(self, input_tape: Optional[Sequence[int]] = None) -> None:
         """Run the machine until reaching a halting state.
 
         Steps through the next instruction until halting by repeatedly calling
@@ -46,6 +55,9 @@ class RAM:
             ReadError if attempting to read past the end of the input tape.
 
         """
+        if input_tape is not None:
+            self.input_tape = input_tape
+        self.reset()
         while not self.halted:
             self.step()
 
