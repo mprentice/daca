@@ -24,7 +24,7 @@ class Tag(StrEnum):
     colon = r"\:"
     equals = r"\="
     star = r"\*"
-    literal_integer = r"\d+"
+    literal_integer = r"[-]?\d+"
     keyword = "(" + "|".join([o.value for o in Opcode]) + ")"
     literal_id = r"\w+"
     error = r"."

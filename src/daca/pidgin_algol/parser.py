@@ -32,8 +32,8 @@ class Keyword(StrEnum):
 class Tag(StrEnum):
     whitespace = r"\s+"
     keyword = "(" + "|".join([k.value for k in Keyword]) + ")"
+    literal_integer = r"[-]?\d+"
     symbol = r"(\<=|>=|!=|\<-|[;=≠<≤>≥←+*/-])"
-    literal_integer = r"\d+"
     literal_id = r"\w+"
     error = r"."
 
