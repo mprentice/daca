@@ -4,6 +4,7 @@ import pytest
 
 from daca.common import ParseError
 from daca.ram import RAM, parse, tokenize
+from daca.ram.cli import main
 
 
 @pytest.fixture
@@ -49,3 +50,14 @@ def test_ram(n_pow_n: str):
     assert len(ram.output_tape) == 1
     assert ram.output_tape[0] == 5**5
     assert ram.step_counter == 49
+
+
+def test_ram_main(n_pow_n_file: Path, capsys):
+    _ = capsys.readouterr()
+    main(argv=[str(n_pow_n_file), "2"])
+    captured = capsys.readouterr()
+    assert int(captured.out.strip()) == 2**2
+    main(argv=["--tokenize", "--no-execute", str(n_pow_n_file)])
+    main(argv=["--parse", "--no-execute", str(n_pow_n_file)])
+    main(argv=["--tokenize", "--parse", str(n_pow_n_file), "2"])
+    main(argv=["--verbose", "--tokenize", "--parse", str(n_pow_n_file), "2"])

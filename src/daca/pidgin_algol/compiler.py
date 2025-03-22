@@ -128,9 +128,7 @@ class RamCompiler:
         elif isinstance(statement, AssignmentStatement):
             insts = self.compile_assignment_statement(statement)
         else:
-            raise CompileError(
-                line=statement.line, column=statement.column, value=statement
-            )
+            raise CompileError(value=statement)
         return insts
 
     def compile_block_statement(self, block: BlockStatement) -> list[Instruction]:
@@ -157,7 +155,7 @@ class RamCompiler:
                 Opcode.WRITE, Operand(value=register, flag=OperandFlag.direct)
             )
         else:
-            raise CompileError(line=s.line, column=s.column, value=s.value)
+            raise CompileError(value=s.value)
 
     def _assert_comparison(self, condition: Expression) -> BinaryExpression:
         if isinstance(condition, BinaryExpression):
@@ -166,15 +164,11 @@ class RamCompiler:
             else:
                 raise CompileError(
                     message=f"operator must be a comparison in {condition}",
-                    line=condition.line,
-                    column=condition.column,
                     value=condition.operator,
                 )
         else:
             raise CompileError(
                 message=f"condition {condition} must be a BinaryExpression",
-                line=condition.line,
-                column=condition.column,
                 value=condition,
             )
 
@@ -307,7 +301,7 @@ class RamCompiler:
         elif isinstance(exp, BinaryExpression):
             insts = self.compile_binary_expression(exp)
         else:
-            raise CompileError(line=exp.line, column=exp.column, value=exp)
+            raise CompileError(value=exp)
         return insts
 
     def compile_unary_expression(self, exp: UnaryExpression) -> Instruction:
@@ -316,7 +310,7 @@ class RamCompiler:
         elif isinstance(exp, VariableExpression):
             return self.compile_variable_expression(exp)
         else:
-            raise CompileError(line=exp.line, column=exp.column, value=exp)
+            raise CompileError(value=exp)
 
     def compile_literal_expression(self, exp: LiteralExpression) -> Instruction:
         return Instruction(
@@ -369,8 +363,6 @@ class RamCompiler:
         else:
             raise CompileError(
                 message=f"Invalid binary operator {op} for binary expression {exp}",
-                line=exp.line,
-                column=exp.column,
                 value=op,
             )
 
@@ -380,54 +372,33 @@ class RamCompiler:
         self, exp: BinaryExpression, address: Address
     ) -> list[Instruction]:
         insts: list[Instruction] = []
-        op = exp.operator
-        is_zero_flag = is_zero(exp.right)
-        neg_one = Operand(value=-1, flag=OperandFlag.literal)
-        pos_one = Operand(value=1, flag=OperandFlag.literal)
-        zero = Operand(value=0, flag=OperandFlag.literal)
         self._comp_counter += 1
+        cc = self._comp_counter
 
-        def add_instructions(
-            with_mult: bool, jumper: Opcode, branch1_pos: bool
-        ) -> None:
-            self._pc += 3
-            if not is_zero_flag:
-                insts.append(Instruction(opcode=Opcode.SUB, address=address))
-                self._pc += 1
-            if with_mult:
-                insts.append(Instruction(opcode=Opcode.MULT, address=neg_one))
-                self._pc += 1
-
-            lbl = "zero" if jumper == Opcode.JZERO else "gtz"
-            jt = self._update_jumptable(f"{lbl}{self._comp_counter}")
-            insts.append(Instruction(opcode=jumper, address=jt))
-            write_val = pos_one if branch1_pos else zero
-            insts.append(Instruction(opcode=Opcode.LOAD, address=write_val))
+        if not is_zero(exp.right):
+            insts.append(Instruction(opcode=Opcode.SUB, address=address))
             self._pc += 1
-            jt = self._update_jumptable(f"endcmp{self._comp_counter}")
-            insts.append(Instruction(opcode=Opcode.JUMP, address=jt))
-            write_val = zero if branch1_pos else pos_one
-            insts.append(Instruction(opcode=Opcode.LOAD, address=write_val))
 
-        if op == BinaryOperator.equals:
-            add_instructions(with_mult=False, jumper=Opcode.JZERO, branch1_pos=False)
-        elif op == BinaryOperator.not_equals:
-            add_instructions(with_mult=False, jumper=Opcode.JZERO, branch1_pos=True)
-        elif op == BinaryOperator.lt:
-            add_instructions(with_mult=True, jumper=Opcode.JGTZ, branch1_pos=True)
-        elif op == BinaryOperator.le:
-            add_instructions(with_mult=False, jumper=Opcode.JGTZ, branch1_pos=True)
-        elif op == BinaryOperator.gt:
-            add_instructions(with_mult=False, jumper=Opcode.JGTZ, branch1_pos=False)
-        elif op == BinaryOperator.ge:
-            add_instructions(with_mult=True, jumper=Opcode.JGTZ, branch1_pos=False)
-        else:
-            raise CompileError(
-                message=f"Invalid binary operator {op} for comparison expression {exp}",
-                line=exp.line,
-                column=exp.column,
-                value=op,
-            )
+        action: ConditionAction = self._comp_action[exp.operator]
+
+        if action.with_mult:
+            insts.append(self._mult_neg_one)
+            self._pc += 1
+
+        load_1 = self._zero if action.jump_to_body else self._pos_one
+        load_2 = self._pos_one if action.jump_to_body else self._zero
+
+        self._pc += 3
+        jt = self._update_jumptable(f"cmp{cc}")
+
+        insts.append(Instruction(opcode=action.jumper, address=jt))
+        insts.append(Instruction(opcode=Opcode.LOAD, address=load_1))
+
+        self._pc += 1
+        jt = self._update_jumptable(f"endcmp{cc}")
+
+        insts.append(Instruction(opcode=Opcode.JUMP, address=jt))
+        insts.append(Instruction(opcode=Opcode.LOAD, address=load_2))
 
         return insts
 
@@ -460,8 +431,6 @@ class RamCompiler:
             if is_zero_flag:
                 raise CompileError(
                     message=f"Attempt to divide by literal 0 in {exp}",
-                    line=exp.line,
-                    column=exp.column,
                     value=address,
                 )
             insts.append(Instruction(opcode=Opcode.DIV, address=address))
@@ -469,8 +438,6 @@ class RamCompiler:
         else:
             raise CompileError(
                 message=f"Invalid binary operator {op} for arithmetic expression {exp}",
-                line=exp.line,
-                column=exp.column,
                 value=op,
             )
         return insts

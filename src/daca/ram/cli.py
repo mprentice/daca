@@ -1,3 +1,5 @@
+"""Command line interface (CLI) for working with the RAM interpreter."""
+
 import textwrap
 from argparse import ArgumentParser, FileType
 from dataclasses import dataclass, field
@@ -11,6 +13,8 @@ from .parser import parse, tokenize
 
 
 class CliArgumentParser(ArgumentParser):
+    """Argument parser for RAM CLI."""
+
     def __init__(self):
         super().__init__(
             prog="ram", description="Run specified RAM program on input tape."
@@ -56,6 +60,8 @@ class CliArgumentParser(ArgumentParser):
 
 @dataclass
 class CliApp:
+    """Application for running RAM CLI."""
+
     arg_parser: CliArgumentParser = field(default_factory=CliArgumentParser)
 
     def main(self, argv: Optional[list[str]] = None) -> None:

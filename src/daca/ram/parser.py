@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 from io import TextIOBase
-from typing import Generator, Iterable, Optional
+from typing import Generator, Iterable
 
 from daca.common import (
     BaseParser,
@@ -18,6 +18,8 @@ from .program import Instruction, JumpTarget, Opcode, Operand, OperandFlag, Prog
 
 
 class Tag(StrEnum):
+    """Token tags and corresponding regular expressions to match them."""
+
     whitespace = r"\s+"
     colon = r"\:"
     equals = r"\="
@@ -30,25 +32,32 @@ class Tag(StrEnum):
 
 @dataclass
 class Lexer(SimpleRegexLineLexer):
+    """Lexer for RAM programs."""
+
     spec: Sequence[tuple[str, str]] = tuple((t.name, t.value) for t in Tag)
 
-    def filter_token(self, token: Token) -> Optional[Token]:
-        if token.tag == Tag.whitespace.name:
-            return None
-        if token.tag == Tag.error.name:
-            raise ParseError(line=self.line, column=self.column, value=token.value)
-        return super().filter_token(token)
+    def tokenize_line(self, s: str) -> Generator[Token, None, None]:
+        for token in super().tokenize_line(s):
+            if token.tag == Tag.whitespace.name:
+                continue
+            if token.tag == Tag.error.name:
+                raise ParseError(line=self.line, column=self.column, value=token.value)
+            yield token
 
 
 def tokenize(input_stream: str | TextIOBase) -> Generator[Token, None, None]:
+    """Create a token stream from an input stream or str."""
     yield from Lexer().tokenize(input_stream)
 
 
 @dataclass
 class Parser(BaseParser[Program]):
+    """Parser for RAM programs."""
+
     lexer: Lexer = field(default_factory=Lexer)
 
     def parse(self, token_stream: str | TextIOBase | Iterable[Token]) -> Program:
+        """Parse a given token stream into a RAM Program."""
         if isinstance(token_stream, (str, TextIOBase)):
             b = BufferedTokenStream(self.lexer.tokenize(token_stream))
         else:
@@ -148,4 +157,5 @@ class Parser(BaseParser[Program]):
 
 
 def parse(s: str | TextIOBase | Iterable[Token]) -> Program:
+    """Parse a given token stream, input stream, or str into a RAM Program."""
     return Parser().parse(s)

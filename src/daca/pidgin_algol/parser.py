@@ -42,12 +42,13 @@ class Tag(StrEnum):
 class Lexer(SimpleRegexLineLexer):
     spec: Sequence[tuple[str, str]] = tuple((t.name, t.value) for t in Tag)
 
-    def filter_token(self, token: Token) -> Optional[Token]:
-        if token.tag == Tag.whitespace.name:
-            return None
-        if token.tag == Tag.error.name:
-            raise ParseError(line=self.line, column=self.column, value=token.value)
-        return super().filter_token(token)
+    def tokenize_line(self, s: str) -> Generator[Token, None, None]:
+        for token in super().tokenize_line(s):
+            if token.tag == Tag.whitespace.name:
+                continue
+            if token.tag == Tag.error.name:
+                raise ParseError(line=self.line, column=self.column, value=token.value)
+            yield token
 
 
 def tokenize(input_stream: str | TextIOBase) -> Generator[Token, None, None]:
@@ -67,10 +68,7 @@ class BinaryOperator(StrEnum):
     div = "/"
 
 
-@dataclass(frozen=True)
 class Expression(abc.ABC):
-    line: int
-    column: int
 
     @abc.abstractmethod
     def serialize(self) -> str: ...
@@ -106,10 +104,7 @@ class BinaryExpression(Expression):
         return f"{self.left.serialize()} {self.operator.value} {self.right.serialize()}"
 
 
-@dataclass(frozen=True)
 class Statement(abc.ABC):
-    line: int
-    column: int
 
     @abc.abstractmethod
     def serialize(self) -> str: ...
@@ -256,18 +251,12 @@ class Parser(BaseParser[AST]):
             except ParseError:
                 self.assert_token(self.peek(), Tag.keyword, Keyword.end.value)
         self.assert_token(self.next(), Tag.keyword, Keyword.end.value)
-        return BlockStatement(
-            line=begin_token.line, column=begin_token.column, statements=stmts
-        )
+        return BlockStatement(statements=stmts)
 
     def read_read(self) -> ReadStatement:
         read_token = self.next()
         self.assert_token(read_token, Tag.keyword, Keyword.read.value)
-        return ReadStatement(
-            line=read_token.line,
-            column=read_token.column,
-            variable=self.read_variable_expression(),
-        )
+        return ReadStatement(variable=self.read_variable_expression())
 
     def read_if(self) -> IfStatement:
         if_token = self.next()
@@ -281,11 +270,7 @@ class Parser(BaseParser[AST]):
             self.next()
             else_body = self.read_statement()
         return IfStatement(
-            line=if_token.line,
-            column=if_token.column,
-            condition=condition,
-            true_body=true_body,
-            else_body=else_body,
+            condition=condition, true_body=true_body, else_body=else_body
         )
 
     def read_while(self) -> WhileStatement:
@@ -294,12 +279,7 @@ class Parser(BaseParser[AST]):
         condition = self.read_expression()
         self.assert_token(self.next(), Tag.keyword, Keyword.do.value)
         body = self.read_statement()
-        return WhileStatement(
-            line=while_token.line,
-            column=while_token.column,
-            condition=condition,
-            body=body,
-        )
+        return WhileStatement(condition=condition, body=body)
 
     def read_write(self) -> WriteStatement:
         write_token = self.next()
@@ -312,9 +292,7 @@ class Parser(BaseParser[AST]):
                 f"Unexpected unary expression {exp} of type "
                 f"{exp.__class__.__name__} (Expected: variable or literal)"
             )
-        return WriteStatement(
-            line=write_token.line, column=write_token.column, value=exp
-        )
+        return WriteStatement(value=exp)
 
     def read_assignment(self) -> AssignmentStatement:
         tgt = self.next()
@@ -322,11 +300,7 @@ class Parser(BaseParser[AST]):
         self.assert_token(self.next(), Tag.symbol, ["←", "<-"])
         exp = self.read_expression()
         return AssignmentStatement(
-            line=tgt.line,
-            column=tgt.column,
-            variable=VariableExpression(
-                line=tgt.line, column=tgt.column, name=tgt.value
-            ),
+            variable=VariableExpression(name=tgt.value),
             expression=exp,
         )
 
@@ -355,12 +329,12 @@ class Parser(BaseParser[AST]):
     def read_variable_expression(self) -> VariableExpression:
         tok = self.next()
         self.assert_token(tok, Tag.literal_id)
-        return VariableExpression(line=tok.line, column=tok.column, name=tok.value)
+        return VariableExpression(name=tok.value)
 
     def read_literal_expression(self) -> LiteralExpression:
         tok = self.next()
         self.assert_token(tok, Tag.literal_integer)
-        return LiteralExpression(line=tok.line, column=tok.column, value=int(tok.value))
+        return LiteralExpression(value=int(tok.value))
 
     def read_binary_expression(self) -> BinaryExpression:
         left = self.read_unary_expression()
@@ -380,13 +354,7 @@ class Parser(BaseParser[AST]):
                 f"Unexpected token: {tok} (Expected binary operator)"
             ) from ex
         right = self.read_expression()
-        return BinaryExpression(
-            line=left.line,
-            column=left.column,
-            left=left,
-            operator=operator,
-            right=right,
-        )
+        return BinaryExpression(left=left, operator=operator, right=right)
 
     def next(self) -> Token:
         return next(self._token_stream)
