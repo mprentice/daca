@@ -25,6 +25,7 @@ from .parser import (
     ReadStatement,
     Statement,
     UnaryExpression,
+    UnaryNegationExpression,
     VariableExpression,
     WhileStatement,
     WriteStatement,
@@ -296,36 +297,59 @@ class RamCompiler:
 
     def compile_expression(self, exp: Expression) -> list[Instruction]:
         if isinstance(exp, UnaryExpression):
-            insts = [self.compile_unary_expression(exp)]
-            self._pc += 1
+            insts = self.compile_unary_expression(exp)
         elif isinstance(exp, BinaryExpression):
             insts = self.compile_binary_expression(exp)
         else:
             raise CompileError(value=exp)
         return insts
 
-    def compile_unary_expression(self, exp: UnaryExpression) -> Instruction:
+    def compile_unary_expression(self, exp: UnaryExpression) -> list[Instruction]:
         if isinstance(exp, LiteralExpression):
             return self.compile_literal_expression(exp)
         elif isinstance(exp, VariableExpression):
             return self.compile_variable_expression(exp)
+        elif isinstance(exp, UnaryNegationExpression):
+            return self.compile_unary_negation_expression(exp)
         else:
             raise CompileError(value=exp)
 
-    def compile_literal_expression(self, exp: LiteralExpression) -> Instruction:
-        return Instruction(
-            opcode=Opcode.LOAD,
-            address=Operand(value=exp.value, flag=OperandFlag.literal),
-        )
+    def compile_literal_expression(self, exp: LiteralExpression) -> list[Instruction]:
+        self._pc += 1
+        return [
+            Instruction(
+                opcode=Opcode.LOAD,
+                address=Operand(value=exp.value, flag=OperandFlag.literal),
+            )
+        ]
 
-    def compile_variable_expression(self, exp: VariableExpression) -> Instruction:
+    def compile_variable_expression(self, exp: VariableExpression) -> list[Instruction]:
         if exp.name not in self._var_map:
             self._var_map[exp.name] = len(self._var_map) + 1
         register = self._var_map[exp.name]
-        return Instruction(
-            opcode=Opcode.LOAD,
-            address=Operand(value=register, flag=OperandFlag.direct),
-        )
+        self._pc += 1
+        return [
+            Instruction(
+                opcode=Opcode.LOAD,
+                address=Operand(value=register, flag=OperandFlag.direct),
+            )
+        ]
+
+    def compile_unary_negation_expression(
+        self, exp: UnaryNegationExpression
+    ) -> list[Instruction]:
+        if isinstance(exp.exp, LiteralExpression):
+            self._pc += 1
+            return [
+                Instruction(
+                    opcode=Opcode.LOAD,
+                    address=Operand(value=-exp.exp.value, flag=OperandFlag.literal),
+                )
+            ]
+        insts = self.compile_expression(exp.exp)
+        insts.append(self._mult_neg_one)
+        self._pc += 1
+        return insts
 
     def compile_binary_expression(self, exp: BinaryExpression) -> list[Instruction]:
         insts: list[Instruction] = []

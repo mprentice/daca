@@ -73,6 +73,9 @@ class Expression(abc.ABC):
     @abc.abstractmethod
     def serialize(self) -> str: ...
 
+    def __str__(self) -> str:
+        return self.serialize()
+
 
 class UnaryExpression(Expression):
     pass
@@ -104,10 +107,21 @@ class BinaryExpression(Expression):
         return f"{self.left.serialize()} {self.operator.value} {self.right.serialize()}"
 
 
+@dataclass(frozen=True)
+class UnaryNegationExpression(UnaryExpression):
+    exp: UnaryExpression
+
+    def serialize(self) -> str:
+        return f"-{self.exp}"
+
+
 class Statement(abc.ABC):
 
     @abc.abstractmethod
     def serialize(self) -> str: ...
+
+    def __str__(self) -> str:
+        return self.serialize()
 
 
 @dataclass(frozen=True)
@@ -320,6 +334,8 @@ class Parser(BaseParser[AST]):
             return self.read_variable_expression()
         elif top.tag == Tag.literal_integer.name:
             return self.read_literal_expression()
+        elif top.tag == Tag.symbol.name and top.value == "-":
+            return self.read_negation_expression()
         else:
             raise ParseError(
                 f"Unexpected token: {top} "
@@ -335,6 +351,12 @@ class Parser(BaseParser[AST]):
         tok = self.next()
         self.assert_token(tok, Tag.literal_integer)
         return LiteralExpression(value=int(tok.value))
+
+    def read_negation_expression(self) -> UnaryNegationExpression:
+        tok = self.next()
+        self.assert_token(tok, Tag.symbol, "-")
+        exp = self.read_unary_expression()
+        return UnaryNegationExpression(exp=exp)
 
     def read_binary_expression(self) -> BinaryExpression:
         left = self.read_unary_expression()
