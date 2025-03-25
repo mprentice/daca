@@ -1,22 +1,8 @@
-from pathlib import Path
-
 import pytest
 
 from daca.common import CompileError
-from daca.pidgin_algol import compile_to_ram
+from daca.pidgin_algol.compiler import compile_to_ram
 from daca.ram import RAM
-
-
-@pytest.fixture
-def n_pow_n(pytestconfig) -> str:
-    p = Path(pytestconfig.rootdir) / "examples" / "ch1" / "n_pow_n.algol"
-    return p.read_text()
-
-
-@pytest.fixture
-def equal_count(pytestconfig) -> str:
-    p = Path(pytestconfig.rootdir) / "examples" / "ch1" / "equal_count.algol"
-    return p.read_text()
 
 
 def test_pidgin_algol_compile_to_ram_n_pow_n(n_pow_n: str):
