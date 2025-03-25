@@ -1,4 +1,4 @@
-from daca.common.lex import SimpleRegexLineLexer
+from daca.common.lexer import SimpleRegexLineLexer
 from daca.common.token import BufferedTokenStream, Token
 
 

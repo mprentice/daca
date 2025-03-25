@@ -7,7 +7,7 @@ from typing import Iterable
 from daca.common import BaseParser, BufferedTokenStream, ParseError, Token
 
 from .ast import Tag
-from .lex import Lexer
+from .lexer import Lexer
 from .program import Instruction, JumpTarget, Opcode, Operand, OperandFlag, Program
 
 

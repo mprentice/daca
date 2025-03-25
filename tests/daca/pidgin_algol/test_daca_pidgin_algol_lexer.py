@@ -1,5 +1,5 @@
 from daca.pidgin_algol.ast import Tag
-from daca.pidgin_algol.lex import tokenize
+from daca.pidgin_algol.lexer import tokenize
 
 
 def test_tokenize_n_pow_n_algol_program(n_pow_n: str):

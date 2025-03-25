@@ -1,4 +1,4 @@
-from daca.common.lex import SimpleRegexLineLexer
+from daca.common.lexer import SimpleRegexLineLexer
 
 
 def test_simple_regex_line_lexer():

@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from daca.pidgin_algol.ast import AST
-from daca.pidgin_algol.parse import parse
+from daca.pidgin_algol.parser import parse
 
 
 @pytest.fixture

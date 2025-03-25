@@ -29,7 +29,7 @@ from .ast import (
     WhileStatement,
     WriteStatement,
 )
-from .parse import Parser
+from .parser import Parser
 
 
 def is_comparison_operator(op: BinaryOperator) -> bool:

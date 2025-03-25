@@ -1,7 +1,7 @@
 import pytest
 
 from daca.common import ParseError
-from daca.ram.parse import parse
+from daca.ram.parser import parse
 
 # from daca.ram.program import Instruction, JumpTarget, Opcode, Operand, OperandFlag
 from daca.ram.program import Instruction, JumpTarget, Opcode, OperandFlag

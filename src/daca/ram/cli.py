@@ -9,8 +9,8 @@ from typing import Iterable, Optional
 from daca.common import Token
 
 from .interpreter import RAM
-from .lex import tokenize
-from .parse import parse
+from .lexer import tokenize
+from .parser import parse
 
 
 class CliArgumentParser(ArgumentParser):

@@ -7,8 +7,8 @@ RAM interpreter to run a RAM Program.
 
 from .ast import Tag
 from .interpreter import RAM, HaltError, ReadError
-from .lex import Lexer, tokenize
-from .parse import Parser, parse
+from .lexer import Lexer, tokenize
+from .parser import Parser, parse
 from .program import (
     Address,
     Instruction,

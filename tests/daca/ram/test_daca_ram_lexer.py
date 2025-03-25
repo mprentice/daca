@@ -1,7 +1,7 @@
 import pytest
 
 from daca.common import ParseError
-from daca.ram.lex import tokenize
+from daca.ram.lexer import tokenize
 
 
 def test_tokenize_n_pow_n(n_pow_n: str):

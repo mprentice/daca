@@ -7,7 +7,7 @@ from daca.pidgin_algol.ast import (
     WhileStatement,
     WriteStatement,
 )
-from daca.pidgin_algol.parse import parse
+from daca.pidgin_algol.parser import parse
 
 
 def test_read_block():

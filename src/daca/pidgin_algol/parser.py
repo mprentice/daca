@@ -25,7 +25,7 @@ from .ast import (
     WhileStatement,
     WriteStatement,
 )
-from .lex import Lexer
+from .lexer import Lexer
 
 
 @dataclass
