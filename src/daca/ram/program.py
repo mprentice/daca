@@ -86,7 +86,7 @@ class Program:
     instructions: Sequence[Instruction]
     jumptable: Mapping[JumpTarget, int]
 
-    def serialize(self) -> str:
+    def __str__(self) -> str:
         """Returns the text representation of the program."""
         pad = 0
         if self.jumptable:
@@ -99,6 +99,3 @@ class Program:
             line = f"{label:<{pad}}{inst.opcode.value:<7}{address}".rstrip()
             lines.append(line)
         return "\n".join(lines)
-
-    def __str__(self) -> str:
-        return self.serialize()

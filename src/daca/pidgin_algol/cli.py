@@ -1,3 +1,5 @@
+"""Command line interface (CLI) for working with the Pidgin Algol language."""
+
 import textwrap
 from argparse import ArgumentParser, FileType
 from dataclasses import dataclass, field
@@ -12,6 +14,8 @@ from .parser import parse, tokenize
 
 
 class CliArgumentParser(ArgumentParser):
+    """Argument parser for Pidgin Algol CLI."""
+
     def __init__(self):
         super().__init__(prog="palgol", description="Run a pidgin ALGOL program")
         self.add_argument(
@@ -62,6 +66,8 @@ class CliArgumentParser(ArgumentParser):
 
 @dataclass
 class CliApp:
+    """Application for parsing, compiling, and running a Pidgin Algol program."""
+
     arg_parser: CliArgumentParser = field(default_factory=CliArgumentParser)
 
     def main(self, argv: Optional[list[str]] = None) -> None:
@@ -91,7 +97,7 @@ class CliApp:
         if args.parse:
             if args.verbose:
                 print("Parsed pidgin algol program:\n")
-            print(ast.serialize())
+            print(f"{ast}")
             print()
 
         ram_program = compile_to_ram(ast)
@@ -99,7 +105,7 @@ class CliApp:
         if args.compile:
             if args.verbose:
                 print("RAM instructions for compiled pidgin algol program:\n")
-            print(ram_program.serialize())
+            print(f"{ram_program}")
             print()
 
         if args.no_execute:
@@ -123,6 +129,7 @@ class CliApp:
 
 
 def main(argv: Optional[list[str]] = None) -> None:
+    """CLI main method."""
     CliApp().main(argv)
 
 

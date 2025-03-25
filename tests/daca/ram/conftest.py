@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from daca.ram.parser import parse
+from daca.ram.parse import parse
 from daca.ram.program import Program
 
 

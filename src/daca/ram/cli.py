@@ -9,7 +9,8 @@ from typing import Iterable, Optional
 from daca.common import Token
 
 from .interpreter import RAM
-from .parser import parse, tokenize
+from .lex import tokenize
+from .parse import parse
 
 
 class CliArgumentParser(ArgumentParser):
@@ -89,7 +90,7 @@ class CliApp:
         program = parse(tokens)
 
         if args.parse:
-            print(program.serialize())
+            print(f"{program}")
 
         if args.no_execute:
             return

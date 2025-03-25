@@ -18,6 +18,8 @@ from daca.common import (
 
 
 class Keyword(StrEnum):
+    """Pidgin Algol keywords."""
+
     begin = "begin"
     end = "end"
     read = "read"
@@ -30,6 +32,8 @@ class Keyword(StrEnum):
 
 
 class Tag(StrEnum):
+    """Token tags and corresponding regular expressions to match them."""
+
     whitespace = r"\s+"
     keyword = "(" + "|".join([k.value for k in Keyword]) + ")"
     literal_integer = r"[-]?\d+"

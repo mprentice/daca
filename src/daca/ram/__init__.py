@@ -5,8 +5,10 @@ Utilities to tokenize and parse files into a RAM Program.
 RAM interpreter to run a RAM Program.
 """
 
+from .ast import Tag
 from .interpreter import RAM, HaltError, ReadError
-from .parser import Lexer, Parser, Tag, parse, tokenize
+from .lex import Lexer, tokenize
+from .parse import Parser, parse
 from .program import (
     Address,
     Instruction,
