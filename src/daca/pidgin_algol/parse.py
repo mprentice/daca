@@ -133,7 +133,7 @@ class Parser(BaseParser[AST]):
             exp = self.read_binary_expression()
             self._token_stream.commit()
             return exp
-        except ParseError:
+        except (ParseError, StopIteration):
             self._token_stream.rollback()
         return self.read_unary_expression()
 
