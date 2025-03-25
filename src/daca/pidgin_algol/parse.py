@@ -1,226 +1,31 @@
 """Parser for Pidgin Algol."""
 
-import abc
-import re
-from collections.abc import Sequence
 from dataclasses import dataclass, field
-from enum import StrEnum
 from io import TextIOBase
-from typing import Generator, Iterable, Optional
+from typing import Iterable, Optional
 
-from daca.common import (
-    BaseParser,
-    BufferedTokenStream,
-    ParseError,
-    SimpleRegexLineLexer,
-    Token,
+from daca.common import BaseParser, BufferedTokenStream, ParseError, Token
+
+from .ast import (
+    AST,
+    AssignmentStatement,
+    BinaryExpression,
+    BinaryOperator,
+    BlockStatement,
+    Expression,
+    IfStatement,
+    Keyword,
+    LiteralExpression,
+    ReadStatement,
+    Statement,
+    Tag,
+    UnaryExpression,
+    UnaryNegationExpression,
+    VariableExpression,
+    WhileStatement,
+    WriteStatement,
 )
-
-
-class Keyword(StrEnum):
-    """Pidgin Algol keywords."""
-
-    begin = "begin"
-    end = "end"
-    read = "read"
-    if_ = "if"
-    then = "then"
-    else_ = "else"
-    while_ = "while"
-    do = "do"
-    write = "write"
-
-
-class Tag(StrEnum):
-    """Token tags and corresponding regular expressions to match them."""
-
-    whitespace = r"\s+"
-    keyword = "(" + "|".join([k.value for k in Keyword]) + ")"
-    literal_integer = r"[-]?\d+"
-    symbol = r"(\<=|>=|!=|\<-|[;=≠<≤>≥←+*/-])"
-    literal_id = r"\w+"
-    error = r"."
-
-
-@dataclass
-class Lexer(SimpleRegexLineLexer):
-    spec: Sequence[tuple[str, str]] = tuple((t.name, t.value) for t in Tag)
-
-    def tokenize_line(self, s: str) -> Generator[Token, None, None]:
-        for token in super().tokenize_line(s):
-            if token.tag == Tag.whitespace.name:
-                continue
-            if token.tag == Tag.error.name:
-                raise ParseError(line=self.line, column=self.column, value=token.value)
-            yield token
-
-
-def tokenize(input_stream: str | TextIOBase) -> Generator[Token, None, None]:
-    yield from Lexer().tokenize(input_stream)
-
-
-class BinaryOperator(StrEnum):
-    equals = "="
-    not_equals = "≠"
-    lt = "<"
-    le = "≤"
-    gt = ">"
-    ge = "≥"
-    plus = "+"
-    minus = "-"
-    mult = "*"
-    div = "/"
-
-
-class Expression(abc.ABC):
-
-    @abc.abstractmethod
-    def serialize(self) -> str: ...
-
-    def __str__(self) -> str:
-        return self.serialize()
-
-
-class UnaryExpression(Expression):
-    pass
-
-
-@dataclass(frozen=True)
-class LiteralExpression(UnaryExpression):
-    value: int
-
-    def serialize(self) -> str:
-        return f"{self.value}"
-
-
-@dataclass(frozen=True)
-class VariableExpression(UnaryExpression):
-    name: str
-
-    def serialize(self) -> str:
-        return f"{self.name}"
-
-
-@dataclass(frozen=True)
-class BinaryExpression(Expression):
-    left: Expression
-    operator: BinaryOperator
-    right: Expression
-
-    def serialize(self) -> str:
-        return f"{self.left.serialize()} {self.operator.value} {self.right.serialize()}"
-
-
-@dataclass(frozen=True)
-class UnaryNegationExpression(UnaryExpression):
-    exp: UnaryExpression
-
-    def serialize(self) -> str:
-        return f"-{self.exp}"
-
-
-class Statement(abc.ABC):
-
-    @abc.abstractmethod
-    def serialize(self) -> str: ...
-
-    def __str__(self) -> str:
-        return self.serialize()
-
-
-@dataclass(frozen=True)
-class BlockStatement(Statement):
-    statements: Sequence[Statement] = field(default_factory=list)
-
-    def serialize(self) -> str:
-        return (
-            "begin\n"
-            + ";\n".join(
-                [
-                    "\n".join(["    " + line for line in b.serialize().split("\n")])
-                    for b in self.statements
-                ]
-            )
-            + "\nend"
-        )
-        s = "\n".join(
-            ["begin"]
-            + [
-                "    " + line
-                for b in self.statements
-                for line in b.serialize().split("\n")
-            ]
-            + ["end"]
-        )
-        return re.sub(r"\s+;", ";", s, flags=re.MULTILINE)
-
-
-@dataclass(frozen=True)
-class ReadStatement(Statement):
-    variable: VariableExpression
-
-    def serialize(self):
-        return f"read {self.variable.serialize()}"
-
-
-@dataclass(frozen=True)
-class WriteStatement(Statement):
-    value: VariableExpression | LiteralExpression
-
-    def serialize(self):
-        return f"write {self.value.serialize()}"
-
-
-@dataclass(frozen=True)
-class IfStatement(Statement):
-    condition: Expression
-    true_body: Statement
-    else_body: Optional[Statement] = None
-
-    def serialize(self) -> str:
-        if self.else_body:
-            return "\n".join(
-                [f"if {self.condition.serialize()} then"]
-                + ["    " + line for line in self.true_body.serialize().split("\n")]
-                + ["else"]
-                + ["    " + line for line in self.else_body.serialize().split("\n")]
-            )
-        return "\n".join(
-            [f"if {self.condition.serialize()} then"]
-            + ["    " + line for line in self.true_body.serialize().split("\n")]
-        )
-
-
-@dataclass(frozen=True)
-class WhileStatement(Statement):
-    condition: Expression
-    body: Statement
-
-    def serialize(self) -> str:
-        return "\n".join(
-            [f"while {self.condition.serialize()} do"]
-            + ["    " + line for line in self.body.serialize().split("\n")]
-        )
-
-
-@dataclass(frozen=True)
-class AssignmentStatement(Statement):
-    variable: VariableExpression
-    expression: Expression
-
-    def serialize(self) -> str:
-        return f"{self.variable.serialize()} ← {self.expression.serialize()}"
-
-
-@dataclass(frozen=True)
-class AST:
-    head: Statement
-
-    def serialize(self) -> str:
-        return self.head.serialize()
-
-    def __str__(self) -> str:
-        return self.serialize()
+from .lex import Lexer
 
 
 @dataclass

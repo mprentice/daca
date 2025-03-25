@@ -10,7 +10,8 @@ from daca.common import Token
 from daca.ram import RAM
 
 from .compiler import compile_to_ram
-from .parser import parse, tokenize
+from .lex import tokenize
+from .parse import parse
 
 
 class CliArgumentParser(ArgumentParser):

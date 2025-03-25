@@ -12,7 +12,7 @@ from daca.ram import (
     Program,
 )
 
-from .parser import (
+from .ast import (
     AST,
     AssignmentStatement,
     BinaryExpression,
@@ -21,7 +21,6 @@ from .parser import (
     Expression,
     IfStatement,
     LiteralExpression,
-    Parser,
     ReadStatement,
     Statement,
     UnaryExpression,
@@ -30,6 +29,7 @@ from .parser import (
     WhileStatement,
     WriteStatement,
 )
+from .parse import Parser
 
 
 def is_comparison_operator(op: BinaryOperator) -> bool:
