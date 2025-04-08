@@ -38,7 +38,7 @@ class RAM:
 
     def reset(self) -> None:
         self.read_head = 0
-        self.location_count = 0
+        self.location_counter = 0
         self.memory_registers = {0: 0}
         self.output_tape = []
         self.halted = False
