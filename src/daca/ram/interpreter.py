@@ -1,5 +1,6 @@
 from collections.abc import MutableMapping, MutableSequence, Sequence
 from dataclasses import dataclass, field
+from math import log2
 from typing import Optional
 
 from .program import Instruction, JumpTarget, Opcode, Operand, OperandFlag, Program
@@ -35,6 +36,7 @@ class RAM:
     output_tape: MutableSequence[int] = field(default_factory=list)
     halted: bool = False
     step_counter: int = 0
+    step_cost: int = 0
 
     def reset(self) -> None:
         self.read_head = 0
@@ -43,6 +45,7 @@ class RAM:
         self.output_tape = []
         self.halted = False
         self.step_counter = 0
+        self.step_cost = 0
 
     def run(self, input_tape: Optional[Sequence[int]] = None) -> None:
         """Run the machine until reaching a halting state.
@@ -94,6 +97,7 @@ class RAM:
 
     def LOAD(self, a: Operand) -> int:
         """LOAD a: c(0) ← v(a)"""
+        self.step_cost += self.t(a)
         self.set_c(0, self.v(a))
         return self.location_counter + 1
 
@@ -103,28 +107,36 @@ class RAM:
         STORE *i: c(c(i)) ← c(0)
         """
         if i.flag == OperandFlag.indirect:
+            self.step_cost += (
+                log_cost(self.c(0)) + log_cost(i.value) + log_cost(self.c(i.value))
+            )
             self.set_c(self.c(i.value), self.c(0))
         else:
+            self.step_cost += log_cost(self.c(0)) + log_cost(i.value)
             self.set_c(i.value, self.c(0))
         return self.location_counter + 1
 
     def ADD(self, a: Operand) -> int:
         """ADD a: c(0) ← c(0) + v(a)"""
+        self.step_cost += log_cost(self.c(0)) + self.t(a)
         self.set_c(0, self.c(0) + self.v(a))
         return self.location_counter + 1
 
     def SUB(self, a: Operand) -> int:
         """SUB a: c(0) ← c(0) - v(a)"""
+        self.step_cost += log_cost(self.c(0)) + self.t(a)
         self.set_c(0, self.c(0) - self.v(a))
         return self.location_counter + 1
 
     def MULT(self, a: Operand) -> int:
         """MULT a: c(0) ← c(0) * v(a)"""
+        self.step_cost += log_cost(self.c(0)) + self.t(a)
         self.set_c(0, self.c(0) * self.v(a))
         return self.location_counter + 1
 
     def DIV(self, a: Operand) -> int:
         """DIV a: c(0) ← c(0) * v(a)"""
+        self.step_cost += log_cost(self.c(0)) + self.t(a)
         self.set_c(0, self.c(0) // self.v(a))
         return self.location_counter + 1
 
@@ -146,8 +158,12 @@ class RAM:
         self.read_head += 1
 
         if i.flag == OperandFlag.indirect:
+            self.step_cost += (
+                log_cost(space) + log_cost(i.value) + log_cost(self.c(i.value))
+            )
             self.set_c(self.c(i.value), space)
         else:
+            self.step_cost += log_cost(space) + log_cost(i.value)
             self.set_c(i.value, space)
 
         return self.location_counter + 1
@@ -157,11 +173,13 @@ class RAM:
 
         Output tape head moves one square right.
         """
+        self.step_cost += self.t(a)
         self.output_tape.append(self.v(a))
         return self.location_counter + 1
 
     def JUMP(self, b: JumpTarget) -> int:
         """JUMP b: set location counter to instruction labeled b"""
+        self.step_cost += 1
         return self.program.jumptable[b]
 
     def JGTZ(self, b: JumpTarget) -> int:
@@ -170,6 +188,7 @@ class RAM:
         If c(0) > 0: set location counter to instruction labeled b
 
         Otherwise, set location counter to next instruction"""
+        self.step_cost += log_cost(self.c(0))
         if self.c(0) > 0:
             return self.program.jumptable[b]
         else:
@@ -181,6 +200,7 @@ class RAM:
         If c(0) = 0: set location counter to instruction labeled b
 
         Otherwise, set location counter to next instruction"""
+        self.step_cost += log_cost(self.c(0))
         if self.c(0) == 0:
             return self.program.jumptable[b]
         else:
@@ -188,6 +208,7 @@ class RAM:
 
     def HALT(self) -> int:
         """Halt execution of machine."""
+        self.step_cost += 1
         self.halted = True
         return self.location_counter
 
@@ -218,3 +239,29 @@ class RAM:
             return self.c(self.c(a.value))
         else:
             return self.c(a.value)
+
+    def t(self, a: Operand) -> int:
+        """Logarithmic cost t(a) for an operand."""
+        i = a.value
+        if a.flag == OperandFlag.literal:
+            return log_cost(i)
+        elif a.flag == OperandFlag.direct:
+            return log_cost(i) + log_cost(self.c(i))
+        elif a.flag == OperandFlag.indirect:
+            return log_cost(i) + log_cost(self.c(i)) + log_cost(self.c(self.c(i)))
+        raise ValueError(f"{a.flag} not a recognized OperandFlag for t(a)")
+
+    @property
+    def log_space_cost(self) -> int:
+        """Logarithmic space cost of the RAM's memory."""
+        return sum(log_cost(i) for i in self.memory_registers.values())
+
+    @property
+    def uniform_space_cost(self) -> int:
+        """Uniform space cost of the RAM's memory."""
+        return len(self.memory_registers.values())
+
+
+def log_cost(i: int) -> int:
+    """Logarithmic cost function for integers."""
+    return 1 if i == 0 else int(log2(abs(i))) + 1

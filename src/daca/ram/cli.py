@@ -102,8 +102,18 @@ class CliApp:
         if args.verbose:
             print(f"Input tape: {input_tape}")
             print(f"# of steps: {ram.step_counter}")
+            print(f"# of memory registers: {ram.uniform_space_cost}")
+            print(f"Total step log cost: {ram.step_cost}")
+            print(f"Total space log cost: {ram.log_space_cost}")
             print(f"Halted: {ram.halted}")
-            print(f"Output tape: {ram.output_tape}")
+            try:
+                print(f"Output tape: {ram.output_tape}")
+            except ValueError as e:
+                if "Exceeds the limit" in str(e):
+                    n = len(ram.output_tape)
+                    print(f"Output tape: [<{n} item(s)>] (contents too large to show)")
+                else:
+                    raise
         else:
             print(" ".join([str(i) for i in ram.output_tape]))
 
