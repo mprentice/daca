@@ -1,5 +1,6 @@
 """Command line interface (CLI) for working with the RAM interpreter."""
 
+import json
 import textwrap
 from argparse import ArgumentParser, FileType
 from dataclasses import dataclass, field
@@ -8,6 +9,7 @@ from typing import Iterable, Optional
 
 from daca.common import Token
 
+from .compiler import compile, decompile
 from .interpreter import RAM
 from .lexer import tokenize
 from .parser import parse
@@ -25,7 +27,7 @@ class CliArgumentParser(ArgumentParser):
             "-n",
             action="store_true",
             default=False,
-            help="Only parse PROGRAM, don't execute it.",
+            help="Don't execute PROGRAM.",
         )
         self.add_argument(
             "--tokenize",
@@ -40,6 +42,20 @@ class CliArgumentParser(ArgumentParser):
             action="store_true",
             default=False,
             help="Show serialization of parsed PROGRAM",
+        )
+        self.add_argument(
+            "--compile",
+            "-c",
+            action="store_true",
+            default=False,
+            help="Show compilation of PROGRAM.",
+        )
+        self.add_argument(
+            "--decompile",
+            "-d",
+            action="store_true",
+            default=False,
+            help="Show decompilation of compiled PROGRAM.",
         )
         self.add_argument(
             "--verbose",
@@ -74,28 +90,47 @@ class CliApp:
         )
 
         input_tape = tuple(args.input)
-        program_file = args.program
-        tokens: Iterable[Token] = tokenize(program_file)
 
-        if args.tokenize:
-            tokens = list(tokens)
-            if args.verbose:
-                pprint(tokens)
-            else:
-                tok_vals = [t.value for t in tokens]
-                print(
-                    "\n".join(textwrap.wrap("«" + "» «".join(tok_vals) + "»", width=80))
-                )
+        if (
+            args.decompile
+            or args.program.name.lower().endswith(".ramc")
+            or args.program.buffer.peek(1).decode().strip().startswith("{")
+        ):
+            d = json.load(args.program)
+            instructions = d["instructions"]
+            if args.decompile:
+                jumptable = d.get("jumptable")
+                ast = decompile(instructions, jumptable)
+                print(f"{ast}")
+            ram = RAM(instructions, input_tape)
+        else:
+            tokens: Iterable[Token] = tokenize(args.program)
 
-        program = parse(tokens)
+            if args.tokenize:
+                tokens = list(tokens)
+                if args.verbose:
+                    pprint(tokens)
+                else:
+                    tok_vals = [t.value for t in tokens]
+                    print(
+                        "\n".join(
+                            textwrap.wrap("«" + "» «".join(tok_vals) + "»", width=80)
+                        )
+                    )
 
-        if args.parse:
-            print(f"{program}")
+            ast = parse(tokens)
+            if args.parse:
+                print(f"{ast}")
+
+            program = compile(ast)
+
+            if args.compile:
+                print(json.dumps({"instructions": program, "jumptable": ast.jumptable}))
+
+            ram = RAM(program, input_tape)
 
         if args.no_execute:
             return
-
-        ram = RAM(program, input_tape)
 
         ram.run()
 
@@ -115,7 +150,10 @@ class CliApp:
                 else:
                     raise
         else:
-            print(" ".join([str(i) for i in ram.output_tape]))
+            if len(ram.output_tape) == 1:
+                print(ram.output_tape[0])
+            else:
+                pprint(ram.output_tape)
 
 
 def main(argv: Optional[list[str]] = None) -> None:

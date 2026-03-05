@@ -4,7 +4,7 @@ import abc
 import re
 from collections.abc import Generator, Sequence
 from dataclasses import dataclass, field
-from io import StringIO, TextIOBase
+from io import TextIOBase
 
 from .token import Token
 
@@ -13,7 +13,7 @@ class BaseLexer(abc.ABC):
     """Abstract base class for tokenizers (lexers)."""
 
     @abc.abstractmethod
-    def tokenize(self, input_stream: str | TextIOBase) -> Generator[Token, None, None]:
+    def tokenize(self, input_stream: TextIOBase) -> Generator[Token, None, None]:
         """Generate tokens from a str of TextIO-type input stream."""
 
 
@@ -24,11 +24,10 @@ class LineLexer(BaseLexer):
     line: int = 0
     column: int = 0
 
-    def tokenize(self, input_stream: str | TextIOBase) -> Generator[Token, None, None]:
-        inp = StringIO(input_stream) if isinstance(input_stream, str) else input_stream
+    def tokenize(self, input_stream: TextIOBase) -> Generator[Token, None, None]:
         self.line = -1
         self.column = 0
-        while s := inp.readline():
+        while s := input_stream.readline():
             self.line += 1
             self.column = 0
 
@@ -49,8 +48,11 @@ class SimpleRegexLineLexer(LineLexer):
 
     Example:
 
-        >>> lexer = SimpleRegexLineLexer(spec=[('int', r'\d+'), ('any', r'.')])
-        >>> [(t.tag, t.value) for t in lexer.tokenize('123!')]
+        >>> import io
+        >>> spec = [('int', r'\d+'), ('any', r'.')]
+        >>> stream = io.StringIO('123!')
+        >>> lexer = SimpleRegexLineLexer(spec=spec)
+        >>> [(t.tag, t.value) for t in lexer.tokenize(stream)]
         [('int', '123'), ('any', '!')]
     """
 

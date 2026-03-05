@@ -2,12 +2,26 @@
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from io import TextIOBase
+from enum import StrEnum
+from io import StringIO, TextIOBase
 from typing import Generator
 
 from daca.common import ParseError, SimpleRegexLineLexer, Token
 
-from .ast import Tag
+from .program import Opname
+
+
+class Tag(StrEnum):
+    """Token tags and corresponding regular expressions to match them."""
+
+    whitespace = r"\s+"
+    colon = r"\:"
+    equals = r"\="
+    star = r"\*"
+    literal_integer = r"[-]?\d+"
+    keyword = "(" + "|".join([o.value for o in Opname]) + ")"
+    literal_id = r"\w+"
+    error = r"."
 
 
 @dataclass
@@ -19,12 +33,15 @@ class Lexer(SimpleRegexLineLexer):
     def tokenize_line(self, s: str) -> Generator[Token, None, None]:
         for token in super().tokenize_line(s):
             if token.tag == Tag.whitespace.name:
+                # skip whitespace tokens
                 continue
-            if token.tag == Tag.error.name:
+            elif token.tag == Tag.error.name:
                 raise ParseError(line=self.line, column=self.column, value=token.value)
             yield token
 
 
 def tokenize(input_stream: str | TextIOBase) -> Generator[Token, None, None]:
     """Create a token stream from an input stream or str."""
-    yield from Lexer().tokenize(input_stream)
+    yield from Lexer().tokenize(
+        StringIO(input_stream) if isinstance(input_stream, str) else input_stream
+    )

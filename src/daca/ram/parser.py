@@ -1,44 +1,33 @@
 """Parser for RAM program."""
 
-from dataclasses import dataclass, field
 from io import TextIOBase
 from typing import Iterable
 
 from daca.common import BaseParser, BufferedTokenStream, ParseError, Token
 
-from .ast import Tag
-from .lexer import Lexer
-from .program import Instruction, JumpTarget, Opcode, Operand, OperandFlag, Program
+from .lexer import Tag, tokenize
+from .program import Instruction, Opcode, OperandFlag, Opname, Program
 
 
-@dataclass
 class Parser(BaseParser[Program]):
     """Parser for RAM programs."""
 
-    lexer: Lexer = field(default_factory=Lexer)
-
-    def parse(self, token_stream: str | TextIOBase | Iterable[Token]) -> Program:
+    def parse(self, token_stream: Iterable[Token]) -> Program:
         """Parse a given token stream into a RAM Program."""
-        if isinstance(token_stream, (str, TextIOBase)):
-            b = BufferedTokenStream(self.lexer.tokenize(token_stream))
-        else:
-            b = BufferedTokenStream(token_stream)
-        return self._parse_token_stream(b)
-
-    def _parse_token_stream(self, ts: BufferedTokenStream) -> Program:
+        ts = BufferedTokenStream(token_stream)
         program_counter = 0
-        jumptable: dict[JumpTarget, int] = {}
+        jumptable: dict[str, int] = {}
         instructions = []
 
         try:
             while True:
                 tok = next(ts)
-                if tok.tag == Tag.keyword.name and tok.value == Opcode.HALT.name:
+                if tok.tag == Tag.keyword.name and tok.value == Opname.HALT.name:
                     instructions.append(Instruction(Opcode.HALT))
                     program_counter += 1
                 elif ts.peek().tag == Tag.colon.name:
                     next(ts)
-                    jumptable[JumpTarget(tok.value)] = program_counter
+                    jumptable[tok.value] = program_counter
                 elif tok.tag == Tag.keyword.name:
                     inst = self._parse_instruction(tok, ts)
                     instructions.append(inst)
@@ -52,71 +41,34 @@ class Parser(BaseParser[Program]):
         return Program(tuple(instructions), jumptable)
 
     def _parse_instruction(self, tok: Token, ts: BufferedTokenStream) -> Instruction:
-        if tok.value in (
-            Opcode.JUMP.name,
-            Opcode.JGTZ.name,
-            Opcode.JZERO.name,
-        ):
+        if tok.value in (Opname.JUMP.name, Opname.JGTZ.name, Opname.JZERO.name):
             b = next(ts).value
-            return Instruction(Opcode(tok.value), JumpTarget(value=b))
-        elif tok.value in (
-            Opcode.STORE.name,
-            Opcode.READ.name,
+            return Instruction(Opcode[tok.value], b)
+
+        if ts.peek().tag == Tag.star.name:
+            next(ts)
+            flag = OperandFlag.INDIRECT
+        elif ts.peek().tag == Tag.equals.name:
+            next(ts)
+            flag = OperandFlag.LITERAL
+        else:
+            flag = OperandFlag.DIRECT
+
+        if (
+            tok.value in (Opname.STORE.name, Opname.READ.name)
+            and flag == OperandFlag.LITERAL
         ):
-            if ts.peek().tag == Tag.star.name:
-                next(ts)
-                i = int(next(ts).value)
-                return Instruction(
-                    Opcode(tok.value),
-                    Operand(value=i, flag=OperandFlag.indirect),
-                )
-            elif ts.peek().tag == Tag.equals.name:
-                raise ParseError(
-                    message=(
-                        f"{tok.value} instruction cannot accept "
-                        f"literal value ={ts.peek(2).value}"
-                    ),
-                    line=ts.peek().line,
-                    column=ts.peek().column,
-                    value=ts.peek(),
-                )
-            else:
-                i = int(next(ts).value)
-                return Instruction(
-                    Opcode(tok.value),
-                    Operand(value=i, flag=OperandFlag.direct),
-                )
-        elif tok.value in (
-            Opcode.LOAD.name,
-            Opcode.ADD.name,
-            Opcode.SUB.name,
-            Opcode.MULT.name,
-            Opcode.DIV.name,
-            Opcode.WRITE.name,
-        ):
-            if ts.peek().tag == Tag.star.name:
-                next(ts)
-                a = int(next(ts).value)
-                return Instruction(
-                    Opcode(tok.value),
-                    Operand(value=a, flag=OperandFlag.indirect),
-                )
-            elif ts.peek().tag == Tag.equals.name:
-                next(ts)
-                a = int(next(ts).value)
-                return Instruction(
-                    Opcode(tok.value),
-                    Operand(value=a, flag=OperandFlag.literal),
-                )
-            else:
-                a = int(next(ts).value)
-                return Instruction(
-                    Opcode(tok.value),
-                    Operand(value=a, flag=OperandFlag.direct),
-                )
-        raise ParseError(line=tok.line, column=tok.column, value=tok)
+            v = ts.peek()
+            msg = f"{tok.value} instruction cannot accept literal value ={v.value}"
+            raise ParseError(message=msg, line=v.line, column=v.column, value=v)
+
+        a = int(next(ts).value)
+        opcode = Opcode[f"{tok.value}_{flag.name}"]
+        return Instruction(opcode, a)
 
 
 def parse(s: str | TextIOBase | Iterable[Token]) -> Program:
     """Parse a given token stream, input stream, or str into a RAM Program."""
-    return Parser().parse(s)
+    return Parser().parse(
+        tokenize(s) if isinstance(s, str) or isinstance(s, TextIOBase) else s
+    )

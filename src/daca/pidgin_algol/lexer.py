@@ -2,7 +2,7 @@
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from io import TextIOBase
+from io import StringIO, TextIOBase
 from typing import Generator
 
 from daca.common import ParseError, SimpleRegexLineLexer, Token
@@ -24,4 +24,5 @@ class Lexer(SimpleRegexLineLexer):
 
 
 def tokenize(input_stream: str | TextIOBase) -> Generator[Token, None, None]:
-    yield from Lexer().tokenize(input_stream)
+    s = StringIO(input_stream) if isinstance(input_stream, str) else input_stream
+    yield from Lexer().tokenize(s)

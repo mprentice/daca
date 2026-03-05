@@ -1,5 +1,10 @@
+from io import StringIO
+
 from daca.common.lexer import SimpleRegexLineLexer
 from daca.common.token import BufferedTokenStream, Token
+
+SPEC = (("int", r"\d+"), ("whitespace", r"\s+"))
+PROG = "123 345\t789\n10 14\n86"
 
 
 def test_token():
@@ -11,16 +16,16 @@ def test_token():
 
 
 def test_buffered_token_stream_next():
-    lex = SimpleRegexLineLexer(spec=(("int", r"\d+"), ("whitespace", r"\s+")))
-    toks = BufferedTokenStream(stream=lex.tokenize("123 345\t789\n10 14\n86"))
+    lex = SimpleRegexLineLexer(spec=SPEC)
+    toks = BufferedTokenStream(stream=lex.tokenize(StringIO(PROG)))
     t = next(toks)
     assert t.tag == "int"
     assert t.value == "123"
 
 
 def test_buffered_token_stream_peek():
-    lex = SimpleRegexLineLexer(spec=(("int", r"\d+"), ("whitespace", r"\s+")))
-    toks = BufferedTokenStream(stream=lex.tokenize("123 345\t789\n10 14\n86"))
+    lex = SimpleRegexLineLexer(spec=SPEC)
+    toks = BufferedTokenStream(stream=lex.tokenize(StringIO(PROG)))
     t = toks.peek()
     assert t.tag == "int"
     assert t.value == "123"
@@ -30,8 +35,8 @@ def test_buffered_token_stream_peek():
 
 
 def test_buffered_token_stream_rollback():
-    lex = SimpleRegexLineLexer(spec=(("int", r"\d+"), ("whitespace", r"\s+")))
-    toks = BufferedTokenStream(stream=lex.tokenize("123 345\t789\n10 14\n86"))
+    lex = SimpleRegexLineLexer(spec=SPEC)
+    toks = BufferedTokenStream(stream=lex.tokenize(StringIO(PROG)))
     toks.checkpoint()
     t = next(toks)
     assert t.tag == "int"
@@ -45,8 +50,8 @@ def test_buffered_token_stream_rollback():
 
 
 def test_buffered_token_stream_commit():
-    lex = SimpleRegexLineLexer(spec=(("int", r"\d+"), ("whitespace", r"\s+")))
-    toks = BufferedTokenStream(stream=lex.tokenize("123 345\t789\n10 14\n86"))
+    lex = SimpleRegexLineLexer(spec=SPEC)
+    toks = BufferedTokenStream(stream=lex.tokenize(StringIO(PROG)))
     toks.checkpoint()
     t = next(toks)
     assert t.tag == "int"

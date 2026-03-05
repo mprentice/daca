@@ -25,24 +25,19 @@ from .ast import (
     WhileStatement,
     WriteStatement,
 )
-from .lexer import Lexer
+from .lexer import tokenize
 
 
 @dataclass
 class Parser(BaseParser[AST]):
     """Recursive descent parser for pidgin ALGOL."""
 
-    lexer: Lexer = field(default_factory=Lexer)
     _token_stream: BufferedTokenStream = field(
         init=False, default_factory=lambda: BufferedTokenStream([])
     )
 
-    def parse(self, token_stream: str | TextIOBase | Iterable[Token]) -> AST:
-        if isinstance(token_stream, (str, TextIOBase)):
-            b = BufferedTokenStream(self.lexer.tokenize(token_stream))
-            self._token_stream = b
-        else:
-            self._token_stream = BufferedTokenStream(token_stream)
+    def parse(self, token_stream: Iterable[Token]) -> AST:
+        self._token_stream = BufferedTokenStream(token_stream)
         return AST(head=self.read_statement())
 
     def read_statement(self) -> Statement:
@@ -213,4 +208,8 @@ class Parser(BaseParser[AST]):
 
 
 def parse(token_stream: str | TextIOBase | Iterable[Token]) -> AST:
-    return Parser().parse(token_stream)
+    if isinstance(token_stream, str) or isinstance(token_stream, TextIOBase):
+        ts: Iterable[Token] = tokenize(token_stream)
+    else:
+        ts = token_stream
+    return Parser().parse(ts)

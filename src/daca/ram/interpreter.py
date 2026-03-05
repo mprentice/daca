@@ -1,9 +1,9 @@
-from collections.abc import MutableMapping, MutableSequence, Sequence
+from collections.abc import Mapping, MutableMapping, MutableSequence, Sequence
 from dataclasses import dataclass, field
 from math import log2
-from typing import Optional
+from typing import ClassVar, Optional
 
-from .program import Instruction, JumpTarget, Opcode, Operand, OperandFlag, Program
+from .program import Instruction, Opcode, OperandFlag
 
 
 class HaltError(ValueError):
@@ -28,7 +28,7 @@ class RAM:
     The run and step methods raise errors if the machine is in a halted state.
     """
 
-    program: Program
+    program: Sequence[int] = (Opcode.HALT.value,)
     input_tape: Sequence[int] = field(default_factory=tuple)
     read_head: int = 0
     location_counter: int = 0
@@ -37,6 +37,60 @@ class RAM:
     halted: bool = False
     step_counter: int = 0
     step_cost: int = 0
+
+    dispatch_table: ClassVar[Mapping[int, str]] = {
+        Opcode.LOAD_DIRECT.value: Opcode.LOAD_DIRECT.name.split("_")[0],
+        Opcode.LOAD_LITERAL.value: Opcode.LOAD_LITERAL.name.split("_")[0],
+        Opcode.LOAD_INDIRECT.value: Opcode.LOAD_INDIRECT.name.split("_")[0],
+        Opcode.STORE_DIRECT.value: Opcode.STORE_DIRECT.name.split("_")[0],
+        Opcode.STORE_INDIRECT.value: Opcode.STORE_INDIRECT.name.split("_")[0],
+        Opcode.ADD_DIRECT.value: Opcode.ADD_DIRECT.name.split("_")[0],
+        Opcode.ADD_LITERAL.value: Opcode.ADD_LITERAL.name.split("_")[0],
+        Opcode.ADD_INDIRECT.value: Opcode.ADD_INDIRECT.name.split("_")[0],
+        Opcode.SUB_DIRECT.value: Opcode.SUB_DIRECT.name.split("_")[0],
+        Opcode.SUB_LITERAL.value: Opcode.SUB_LITERAL.name.split("_")[0],
+        Opcode.SUB_INDIRECT.value: Opcode.SUB_INDIRECT.name.split("_")[0],
+        Opcode.MULT_DIRECT.value: Opcode.MULT_DIRECT.name.split("_")[0],
+        Opcode.MULT_LITERAL.value: Opcode.MULT_LITERAL.name.split("_")[0],
+        Opcode.MULT_INDIRECT.value: Opcode.MULT_INDIRECT.name.split("_")[0],
+        Opcode.DIV_DIRECT.value: Opcode.DIV_DIRECT.name.split("_")[0],
+        Opcode.DIV_LITERAL.value: Opcode.DIV_LITERAL.name.split("_")[0],
+        Opcode.DIV_INDIRECT.value: Opcode.DIV_INDIRECT.name.split("_")[0],
+        Opcode.READ_DIRECT.value: Opcode.READ_DIRECT.name.split("_")[0],
+        Opcode.READ_INDIRECT.value: Opcode.READ_INDIRECT.name.split("_")[0],
+        Opcode.WRITE_DIRECT.value: Opcode.WRITE_DIRECT.name.split("_")[0],
+        Opcode.WRITE_LITERAL.value: Opcode.WRITE_LITERAL.name.split("_")[0],
+        Opcode.WRITE_INDIRECT.value: Opcode.WRITE_INDIRECT.name.split("_")[0],
+        Opcode.JUMP.value: Opcode.JUMP.name,
+        Opcode.JGTZ.value: Opcode.JGTZ.name,
+        Opcode.JZERO.value: Opcode.JZERO.name,
+        Opcode.HALT.value: Opcode.HALT.name,
+    }
+
+    dispatch_flag: ClassVar[Mapping[int, OperandFlag]] = {
+        Opcode.LOAD_DIRECT.value: OperandFlag.DIRECT,
+        Opcode.LOAD_LITERAL.value: OperandFlag.LITERAL,
+        Opcode.LOAD_INDIRECT.value: OperandFlag.INDIRECT,
+        Opcode.STORE_DIRECT.value: OperandFlag.DIRECT,
+        Opcode.STORE_INDIRECT.value: OperandFlag.INDIRECT,
+        Opcode.ADD_DIRECT.value: OperandFlag.DIRECT,
+        Opcode.ADD_LITERAL.value: OperandFlag.LITERAL,
+        Opcode.ADD_INDIRECT.value: OperandFlag.INDIRECT,
+        Opcode.SUB_DIRECT.value: OperandFlag.DIRECT,
+        Opcode.SUB_LITERAL.value: OperandFlag.LITERAL,
+        Opcode.SUB_INDIRECT.value: OperandFlag.INDIRECT,
+        Opcode.MULT_DIRECT.value: OperandFlag.DIRECT,
+        Opcode.MULT_LITERAL.value: OperandFlag.LITERAL,
+        Opcode.MULT_INDIRECT.value: OperandFlag.INDIRECT,
+        Opcode.DIV_DIRECT.value: OperandFlag.DIRECT,
+        Opcode.DIV_LITERAL.value: OperandFlag.LITERAL,
+        Opcode.DIV_INDIRECT.value: OperandFlag.INDIRECT,
+        Opcode.READ_DIRECT.value: OperandFlag.DIRECT,
+        Opcode.READ_INDIRECT.value: OperandFlag.INDIRECT,
+        Opcode.WRITE_DIRECT.value: OperandFlag.DIRECT,
+        Opcode.WRITE_LITERAL.value: OperandFlag.LITERAL,
+        Opcode.WRITE_INDIRECT.value: OperandFlag.INDIRECT,
+    }
 
     def reset(self) -> None:
         self.read_head = 0
@@ -56,7 +110,6 @@ class RAM:
         Throws:
             HaltError if the machine is in a halted state.
             ReadError if attempting to read past the end of the input tape.
-
         """
         if input_tape is not None:
             self.input_tape = input_tape
@@ -70,77 +123,78 @@ class RAM:
         Throws:
             HaltError if the machine is in a halted state.
             ReadError if attempting to read past the end of the input tape.
-
         """
         if self.halted:
             raise HaltError("Attempt to step program on halted machine state")
-        self.location_counter = self.dispatch(
-            self.program.instructions[self.location_counter]
-        )
+        self.location_counter = self.dispatch()
         self.step_counter += 1
 
-    def dispatch(self, ins: Instruction) -> int:
+    def dispatch(self) -> int:
         """Dispatch and run one instruction (one step).
 
         Returns location counter for next instruction.
         """
+        i, a = self.program[self.location_counter : self.location_counter + 2]
+
         if self.halted:
+            inst = Instruction(Opcode(i), a)
             raise HaltError(
-                f"Attempt to dispatch instruction: {ins} on halted machine state"
+                f"Attempt to dispatch instruction: {inst} on halted machine state"
             )
-        m = getattr(self, ins.opcode.value)
-        a = ins.address
-        if ins.opcode == Opcode.HALT:
+
+        m = getattr(self, self.dispatch_table[i])
+        if i == Opcode.HALT.value:
             return m()
-        else:
+        elif i in (Opcode.JUMP.value, Opcode.JGTZ.value, Opcode.JZERO.value):
             return m(a)
+        else:
+            flag = self.dispatch_flag[i]
+            return m(a, flag)
 
-    def LOAD(self, a: Operand) -> int:
+    def LOAD(self, a: int, flag: OperandFlag) -> int:
         """LOAD a: c(0) ← v(a)"""
-        self.step_cost += self.t(a)
-        self.set_c(0, self.v(a))
-        return self.location_counter + 1
+        self.step_cost += self.t(a, flag)
+        self.set_c(0, self.v(a, flag))
+        return self.location_counter + 2
 
-    def STORE(self, i: Operand) -> int:
+    def STORE(self, i: int, flag: OperandFlag) -> int:
         """STORE i: c(i) ← c(0)
 
         STORE *i: c(c(i)) ← c(0)
         """
-        if i.flag == OperandFlag.indirect:
-            self.step_cost += (
-                log_cost(self.c(0)) + log_cost(i.value) + log_cost(self.c(i.value))
-            )
-            self.set_c(self.c(i.value), self.c(0))
+        if flag == OperandFlag.INDIRECT:
+            self.step_cost += log_cost(self.c(0)) + log_cost(i) + log_cost(self.c(i))
+            self.set_c(self.c(i), self.c(0))
         else:
-            self.step_cost += log_cost(self.c(0)) + log_cost(i.value)
-            self.set_c(i.value, self.c(0))
-        return self.location_counter + 1
+            self.step_cost += log_cost(self.c(0)) + log_cost(i)
+            self.set_c(i, self.c(0))
+        return self.location_counter + 2
 
-    def ADD(self, a: Operand) -> int:
+    def ADD(self, a: int, flag: OperandFlag) -> int:
         """ADD a: c(0) ← c(0) + v(a)"""
-        self.step_cost += log_cost(self.c(0)) + self.t(a)
-        self.set_c(0, self.c(0) + self.v(a))
-        return self.location_counter + 1
+        self.step_cost += log_cost(self.c(0)) + self.t(a, flag)
+        self.set_c(0, self.c(0) + self.v(a, flag))
+        return self.location_counter + 2
 
-    def SUB(self, a: Operand) -> int:
+    def SUB(self, a: int, flag: OperandFlag) -> int:
         """SUB a: c(0) ← c(0) - v(a)"""
-        self.step_cost += log_cost(self.c(0)) + self.t(a)
-        self.set_c(0, self.c(0) - self.v(a))
-        return self.location_counter + 1
+        self.step_cost += log_cost(self.c(0)) + self.t(a, flag)
+        self.set_c(0, self.c(0) - self.v(a, flag))
+        return self.location_counter + 2
 
-    def MULT(self, a: Operand) -> int:
+    def MULT(self, a: int, flag: OperandFlag) -> int:
         """MULT a: c(0) ← c(0) * v(a)"""
-        self.step_cost += log_cost(self.c(0)) + self.t(a)
-        self.set_c(0, self.c(0) * self.v(a))
-        return self.location_counter + 1
+        self.step_cost += log_cost(self.c(0)) + self.t(a, flag)
+        self.set_c(0, self.c(0) * self.v(a, flag))
+        return self.location_counter + 2
 
-    def DIV(self, a: Operand) -> int:
+    def DIV(self, a: int, flag: OperandFlag) -> int:
         """DIV a: c(0) ← c(0) * v(a)"""
-        self.step_cost += log_cost(self.c(0)) + self.t(a)
-        self.set_c(0, self.c(0) // self.v(a))
-        return self.location_counter + 1
+        self.step_cost += log_cost(self.c(0)) + self.t(a, flag)
+        self.set_c(0, self.c(0) // self.v(a, flag))
+        return self.location_counter + 2
 
-    def READ(self, i: Operand) -> int:
+    def READ(self, i: int, flag: OperandFlag) -> int:
         """READ i: c(i) ← current input tape symbol
 
         READ *i: c(c(i)) ← current input tape symbol
@@ -157,32 +211,30 @@ class RAM:
 
         self.read_head += 1
 
-        if i.flag == OperandFlag.indirect:
-            self.step_cost += (
-                log_cost(space) + log_cost(i.value) + log_cost(self.c(i.value))
-            )
-            self.set_c(self.c(i.value), space)
+        if flag == OperandFlag.INDIRECT:
+            self.step_cost += log_cost(space) + log_cost(i) + log_cost(self.c(i))
+            self.set_c(self.c(i), space)
         else:
-            self.step_cost += log_cost(space) + log_cost(i.value)
-            self.set_c(i.value, space)
+            self.step_cost += log_cost(space) + log_cost(i)
+            self.set_c(i, space)
 
-        return self.location_counter + 1
+        return self.location_counter + 2
 
-    def WRITE(self, a: Operand) -> int:
+    def WRITE(self, a: int, flag: OperandFlag) -> int:
         """WRITE a: v(a) is printed on the output tape
 
         Output tape head moves one square right.
         """
-        self.step_cost += self.t(a)
-        self.output_tape.append(self.v(a))
-        return self.location_counter + 1
+        self.step_cost += self.t(a, flag)
+        self.output_tape.append(self.v(a, flag))
+        return self.location_counter + 2
 
-    def JUMP(self, b: JumpTarget) -> int:
+    def JUMP(self, b: int) -> int:
         """JUMP b: set location counter to instruction labeled b"""
         self.step_cost += 1
-        return self.program.jumptable[b]
+        return b
 
-    def JGTZ(self, b: JumpTarget) -> int:
+    def JGTZ(self, b: int) -> int:
         """JGTZ b: conditionally set location counter to instruction labeled b
 
         If c(0) > 0: set location counter to instruction labeled b
@@ -190,11 +242,11 @@ class RAM:
         Otherwise, set location counter to next instruction"""
         self.step_cost += log_cost(self.c(0))
         if self.c(0) > 0:
-            return self.program.jumptable[b]
+            return b
         else:
-            return self.location_counter + 1
+            return self.location_counter + 2
 
-    def JZERO(self, b: JumpTarget) -> int:
+    def JZERO(self, b: int) -> int:
         """JZERO b: conditionally set location counter to instruction labeled b
 
         If c(0) = 0: set location counter to instruction labeled b
@@ -202,9 +254,9 @@ class RAM:
         Otherwise, set location counter to next instruction"""
         self.step_cost += log_cost(self.c(0))
         if self.c(0) == 0:
-            return self.program.jumptable[b]
+            return b
         else:
-            return self.location_counter + 1
+            return self.location_counter + 2
 
     def HALT(self) -> int:
         """Halt execution of machine."""
@@ -223,33 +275,35 @@ class RAM:
         """c(i) ← v: Set the value at register i to v."""
         self.memory_registers[i] = v
 
-    def v(self, a: Operand) -> int:
+    def v(self, a: int, flag: OperandFlag = OperandFlag.DIRECT) -> int:
         """v(a): Return the value for address a.
 
         Address can be one of:
             =i Literal value of integer i
-            i  Integer value stored at register i
+            i  Integer value stored at register i (default)
             *i Integer value stored at the register number stored in register i
                (indirect address)
 
+        Set flag to OperandFlag.INDIRECT or OperandFlag.LITERAL as appropriate.
         """
-        if a.flag == OperandFlag.literal:
-            return a.value
-        elif a.flag == OperandFlag.indirect:
-            return self.c(self.c(a.value))
+        if flag == OperandFlag.LITERAL:
+            return a
+        elif flag == OperandFlag.INDIRECT:
+            return self.c(self.c(a))
         else:
-            return self.c(a.value)
+            return self.c(a)
 
-    def t(self, a: Operand) -> int:
-        """Logarithmic cost t(a) for an operand."""
-        i = a.value
-        if a.flag == OperandFlag.literal:
-            return log_cost(i)
-        elif a.flag == OperandFlag.direct:
-            return log_cost(i) + log_cost(self.c(i))
-        elif a.flag == OperandFlag.indirect:
-            return log_cost(i) + log_cost(self.c(i)) + log_cost(self.c(self.c(i)))
-        raise ValueError(f"{a.flag} not a recognized OperandFlag for t(a)")
+    def t(self, a: int, flag: OperandFlag = OperandFlag.DIRECT) -> int:
+        """Logarithmic cost t(a) for an operand.
+
+        Set flag to OperandFlag.INDIRECT or OperandFlag.LITERAL as appropriate.
+        """
+        if flag == OperandFlag.LITERAL:
+            return log_cost(a)
+        elif flag == OperandFlag.INDIRECT:
+            return log_cost(a) + log_cost(self.c(a)) + log_cost(self.c(self.c(a)))
+        else:
+            return log_cost(a) + log_cost(self.c(a))
 
     @property
     def log_space_cost(self) -> int:

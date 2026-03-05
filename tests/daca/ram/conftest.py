@@ -1,9 +1,9 @@
+from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
 
-from daca.ram.parser import parse
-from daca.ram.program import Program
+from daca.ram import Program, compile, parse
 
 
 @pytest.fixture
@@ -19,3 +19,8 @@ def n_pow_n(n_pow_n_file: Path) -> str:
 @pytest.fixture
 def n_pow_n_program(n_pow_n: str) -> Program:
     return parse(n_pow_n)
+
+
+@pytest.fixture
+def n_pow_n_compiled_program(n_pow_n_program: Program) -> Sequence[int]:
+    return compile(n_pow_n_program)

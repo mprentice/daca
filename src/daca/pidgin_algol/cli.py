@@ -7,7 +7,7 @@ from pprint import pprint
 from typing import Iterable, Optional
 
 from daca.common import Token
-from daca.ram import RAM
+from daca.ram import RAM, compile
 
 from .compiler import compile_to_ram
 from .lexer import tokenize
@@ -115,7 +115,7 @@ class CliApp:
             return
 
         input_tape = tuple(args.input)
-        ram = RAM(ram_program, input_tape)
+        ram = RAM(compile(ram_program), input_tape)
 
         ram.run()
 
