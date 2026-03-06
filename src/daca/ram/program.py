@@ -2,62 +2,46 @@
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from enum import IntEnum, StrEnum
-from typing import Optional
+from enum import IntEnum
 
-
-class Opname(StrEnum):
-    """Enumeration of RAM instruction names."""
-
-    LOAD = "LOAD"
-    STORE = "STORE"
-    ADD = "ADD"
-    SUB = "SUB"
-    MULT = "MULT"
-    DIV = "DIV"
-    READ = "READ"
-    WRITE = "WRITE"
-    JUMP = "JUMP"
-    JGTZ = "JGTZ"
-    JZERO = "JZERO"
-    HALT = "HALT"
+from daca.common import triplewise
 
 
 class Opcode(IntEnum):
     """Enumeration of RAM instructions opcodes."""
 
-    LOAD_DIRECT = 10
-    LOAD_LITERAL = 11
-    LOAD_INDIRECT = 12
-    STORE_DIRECT = 20
-    STORE_INDIRECT = 21
-    ADD_DIRECT = 30
-    ADD_LITERAL = 31
-    ADD_INDIRECT = 32
-    SUB_DIRECT = 40
-    SUB_LITERAL = 41
-    SUB_INDIRECT = 42
-    MULT_DIRECT = 50
-    MULT_LITERAL = 51
-    MULT_INDIRECT = 52
-    DIV_DIRECT = 60
-    DIV_LITERAL = 61
-    DIV_INDIRECT = 62
-    READ_DIRECT = 70
-    READ_INDIRECT = 71
-    WRITE_DIRECT = 80
-    WRITE_LITERAL = 81
-    WRITE_INDIRECT = 82
-    JUMP = 90
-    JGTZ = 91
-    JZERO = 92
-    HALT = 99
+    LOAD = 1
+    STORE = 2
+    ADD = 3
+    SUB = 4
+    MULT = 5
+    DIV = 6
+    READ = 7
+    WRITE = 8
+    JUMP = 9
+    JGTZ = 10
+    JZERO = 11
+    HALT = 12
 
 
-class OperandFlag(StrEnum):
-    LITERAL = "="
-    INDIRECT = "*"
-    DIRECT = ""
+class OperandType(IntEnum):
+    DIRECT = 0
+    LITERAL = 1
+    INDIRECT = 2
+
+
+@dataclass(frozen=True)
+class Operand:
+    value: int = 0
+    optype: OperandType = OperandType.DIRECT
+
+    def __str__(self) -> str:
+        if self.optype == OperandType.DIRECT:
+            return f"{self.value}"
+        elif self.optype == OperandType.LITERAL:
+            return f"={self.value}"
+        else:
+            return f"*{self.value}"
 
 
 @dataclass(frozen=True)
@@ -69,16 +53,13 @@ class Instruction:
     """
 
     opcode: Opcode
-    address: Optional[int | str] = None
+    address: str | Operand = ""
 
     def __str__(self) -> str:
         if self.opcode == Opcode.HALT:
             return self.opcode.name
-        elif self.opcode in (Opcode.JGTZ, Opcode.JZERO, Opcode.JUMP):
-            return f"{self.opcode.name:<5} {self.address}"
         else:
-            txt, flag = self.opcode.name.split("_")
-            return f"{txt:<5} {OperandFlag[flag].value}{self.address}"
+            return f"{self.opcode.name:<5} {self.address}"
 
 
 @dataclass(frozen=True)
@@ -109,10 +90,41 @@ class Program:
             buf.append(inst.opcode.value)
             if inst.opcode == Opcode.HALT:
                 buf.append(0)
+                buf.append(0)
             elif inst.opcode in (Opcode.JGTZ, Opcode.JUMP, Opcode.JZERO):
                 assert isinstance(inst.address, str)
-                buf.append(self.jumptable[inst.address] * 2)
+                buf.append(0)
+                buf.append(self.jumptable[inst.address] * 3)
             else:
-                assert isinstance(inst.address, int)
-                buf.append(inst.address)
+                assert isinstance(inst.address, Operand)
+                buf.append(inst.address.optype.value)
+                buf.append(inst.address.value)
         return buf
+
+    @classmethod
+    def from_bytecode(
+        cls, bytecode: Sequence[int], jumptable: Mapping[str, int] | None = None
+    ) -> "Program":
+        n: int = 1
+        new_jumptable: dict[str, int] = dict(jumptable) if jumptable else {}
+        jumplabels = {v * 3: k for k, v in new_jumptable.items()}
+
+        instructions: list[Instruction] = []
+
+        for i, t, a in triplewise(bytecode):
+            opcode = Opcode(i)
+            if opcode == Opcode.HALT:
+                instructions.append(Instruction(opcode=opcode))
+            elif opcode in (Opcode.JGTZ, Opcode.JUMP, Opcode.JZERO):
+                if a not in jumplabels:
+                    lbl = f"lbl{n}"
+                    n += 1
+                    jumplabels[a] = lbl
+                    new_jumptable[lbl] = a // 3
+                instructions.append(Instruction(opcode=opcode, address=jumplabels[a]))
+            else:
+                address = Operand(value=a, optype=OperandType(t))
+                inst = Instruction(opcode=opcode, address=address)
+                instructions.append(inst)
+
+        return cls(instructions=instructions, jumptable=new_jumptable)

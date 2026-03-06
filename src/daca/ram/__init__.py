@@ -9,4 +9,4 @@ from .compiler import compile, decompile
 from .interpreter import RAM, HaltError, ReadError
 from .lexer import Lexer, Tag, tokenize
 from .parser import Parser, parse
-from .program import Instruction, Opcode, OperandFlag, Opname, Program
+from .program import Instruction, Opcode, Operand, OperandType, Program

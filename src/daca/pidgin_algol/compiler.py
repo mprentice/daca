@@ -2,7 +2,7 @@ from dataclasses import dataclass, field, replace
 from io import TextIOBase
 
 from daca.common import CompileError
-from daca.ram import Instruction, Opcode, Program
+from daca.ram import Instruction, Opcode, Operand, OperandType, Program
 
 from .ast import (
     AST,
@@ -67,6 +67,15 @@ class RamCompiler:
     _comp_action: dict[BinaryOperator, ConditionAction] = field(
         init=False, default_factory=dict
     )
+    _load_zero: Instruction = Instruction(
+        opcode=Opcode.LOAD, address=Operand(value=0, optype=OperandType.LITERAL)
+    )
+    _load_one: Instruction = Instruction(
+        opcode=Opcode.LOAD, address=Operand(value=1, optype=OperandType.LITERAL)
+    )
+    _mult_neg_one: Instruction = Instruction(
+        opcode=Opcode.MULT, address=Operand(value=-1, optype=OperandType.LITERAL)
+    )
 
     def __post_init__(self):
         self._comp_action[BinaryOperator.equals] = ConditionAction(
@@ -96,7 +105,7 @@ class RamCompiler:
         instructions: list[Instruction] = self.compile_statement(ast.head)
         instructions.append(Instruction(opcode=Opcode.HALT))
         self._pc += 1
-        return Program(instructions.copy(), self._jumptable.copy())
+        return Program(instructions, self._jumptable.copy())
 
     def compile_statement(self, statement: Statement) -> list[Instruction]:
         if isinstance(statement, BlockStatement):
@@ -124,16 +133,25 @@ class RamCompiler:
         if s.variable.name not in self._var_map:
             self._var_map[s.variable.name] = len(self._var_map) + 1
         register = self._var_map[s.variable.name]
-        return Instruction(Opcode.READ_DIRECT, register)
+        return Instruction(
+            opcode=Opcode.READ,
+            address=Operand(value=register, optype=OperandType.DIRECT),
+        )
 
     def compile_write_statement(self, s: WriteStatement) -> Instruction:
         if isinstance(s.value, LiteralExpression):
-            return Instruction(Opcode.WRITE_LITERAL, s.value.value)
+            return Instruction(
+                opcode=Opcode.WRITE,
+                address=Operand(value=s.value.value, optype=OperandType.LITERAL),
+            )
         elif isinstance(s.value, VariableExpression):
             if s.value.name not in self._var_map:
                 self._var_map[s.value.name] = len(self._var_map) + 1
             register = self._var_map[s.value.name]
-            return Instruction(Opcode.WRITE_DIRECT, register)
+            return Instruction(
+                opcode=Opcode.WRITE,
+                address=Operand(value=register, optype=OperandType.DIRECT),
+            )
         else:
             raise CompileError(value=s.value)
 
@@ -173,7 +191,7 @@ class RamCompiler:
             action = self._comp_action[BinaryOperator.not_equals]
 
         if action.with_mult:
-            cond_insts.append(Instruction(opcode=Opcode.MULT_LITERAL, address=-1))
+            cond_insts.append(self._mult_neg_one)
             self._pc += 1
 
         if action.jump_to_body:
@@ -265,7 +283,12 @@ class RamCompiler:
         if s.variable.name not in self._var_map:
             self._var_map[s.variable.name] = len(self._var_map) + 1
         register = self._var_map[s.variable.name]
-        exp_insts.append(Instruction(opcode=Opcode.STORE_DIRECT, address=register))
+        exp_insts.append(
+            Instruction(
+                opcode=Opcode.STORE,
+                address=Operand(value=register, optype=OperandType.DIRECT),
+            )
+        )
         self._pc += 1
         return exp_insts
 
@@ -290,23 +313,38 @@ class RamCompiler:
 
     def compile_literal_expression(self, exp: LiteralExpression) -> list[Instruction]:
         self._pc += 1
-        return [Instruction(opcode=Opcode.LOAD_LITERAL, address=exp.value)]
+        return [
+            Instruction(
+                opcode=Opcode.LOAD,
+                address=Operand(value=exp.value, optype=OperandType.LITERAL),
+            )
+        ]
 
     def compile_variable_expression(self, exp: VariableExpression) -> list[Instruction]:
         if exp.name not in self._var_map:
             self._var_map[exp.name] = len(self._var_map) + 1
         register = self._var_map[exp.name]
         self._pc += 1
-        return [Instruction(opcode=Opcode.LOAD_DIRECT, address=register)]
+        return [
+            Instruction(
+                opcode=Opcode.LOAD,
+                address=Operand(value=register, optype=OperandType.DIRECT),
+            )
+        ]
 
     def compile_unary_negation_expression(
         self, exp: UnaryNegationExpression
     ) -> list[Instruction]:
         if isinstance(exp.exp, LiteralExpression):
             self._pc += 1
-            return [Instruction(opcode=Opcode.LOAD_LITERAL, address=-exp.exp.value)]
+            return [
+                Instruction(
+                    opcode=Opcode.LOAD,
+                    address=Operand(value=-exp.exp.value, optype=OperandType.LITERAL),
+                )
+            ]
         insts = self.compile_expression(exp.exp)
-        insts.append(Instruction(opcode=Opcode.MULT_LITERAL, address=-1))
+        insts.append(self._mult_neg_one)
         self._pc += 1
         return insts
 
@@ -315,15 +353,13 @@ class RamCompiler:
 
         # Small optimization if RHS is a simple literal or variable
         if isinstance(exp.right, LiteralExpression):
-            address = exp.right.value
-            is_literal = True
+            address = Operand(value=exp.right.value, optype=OperandType.LITERAL)
         elif isinstance(exp.right, VariableExpression):
             name = exp.right.name
             if name not in self._var_map:
                 self._var_map[name] = len(self._var_map) + 1
             register = self._var_map[name]
-            address = register
-            is_literal = False
+            address = Operand(value=register, optype=OperandType.DIRECT)
         else:
             # Calculate RHS
             insts.extend(self.compile_expression(exp.right))
@@ -331,10 +367,9 @@ class RamCompiler:
             # Store the result temporarily
             register = len(self._var_map) + 1
             self._var_map[f"<<RESERVE REGISTER {register}"] = register
-            address = register
-            is_literal = False
+            address = Operand(value=register, optype=OperandType.DIRECT)
 
-            insts.append(Instruction(opcode=Opcode.STORE_DIRECT, address=address))
+            insts.append(Instruction(opcode=Opcode.STORE, address=address))
             self._pc += 1
 
         # Calculate LHS
@@ -343,9 +378,9 @@ class RamCompiler:
         # Apply binary operator
         op = exp.operator
         if is_comparison_operator(op):
-            insts.extend(self._compile_comparison_expression(exp, address, is_literal))
+            insts.extend(self._compile_comparison_expression(exp, address))
         elif is_arithmetic_operator(op):
-            insts.extend(self._compile_arithmetic_expression(exp, address, is_literal))
+            insts.extend(self._compile_arithmetic_expression(exp, address))
         else:
             raise CompileError(
                 message=f"Invalid binary operator {op} for binary expression {exp}",
@@ -355,62 +390,58 @@ class RamCompiler:
         return insts
 
     def _compile_comparison_expression(
-        self, exp: BinaryExpression, address: int, is_literal: bool
+        self, exp: BinaryExpression, address: Operand
     ) -> list[Instruction]:
         insts: list[Instruction] = []
         self._comp_counter += 1
         cc = self._comp_counter
 
         if not is_zero(exp.right):
-            opcode = Opcode.SUB_LITERAL if is_literal else Opcode.SUB_DIRECT
-            insts.append(Instruction(opcode=opcode, address=address))
+            insts.append(Instruction(opcode=Opcode.SUB, address=address))
             self._pc += 1
 
         action: ConditionAction = self._comp_action[exp.operator]
 
         if action.with_mult:
-            insts.append(Instruction(opcode=Opcode.MULT_LITERAL, address=-1))
+            insts.append(self._mult_neg_one)
             self._pc += 1
 
-        load_1 = 0 if action.jump_to_body else 1
-        load_2 = 1 if action.jump_to_body else 0
+        load_1 = self._load_zero if action.jump_to_body else self._load_one
+        load_2 = self._load_one if action.jump_to_body else self._load_zero
 
         self._pc += 3
         jt = self._update_jumptable(f"cmp{cc}")
 
         insts.append(Instruction(opcode=action.jumper, address=jt))
-        insts.append(Instruction(opcode=Opcode.LOAD_LITERAL, address=load_1))
+        insts.append(load_1)
 
         self._pc += 1
         jt = self._update_jumptable(f"endcmp{cc}")
 
         insts.append(Instruction(opcode=Opcode.JUMP, address=jt))
-        insts.append(Instruction(opcode=Opcode.LOAD_LITERAL, address=load_2))
+        insts.append(load_2)
 
         return insts
 
     def _compile_arithmetic_expression(
-        self, exp: BinaryExpression, address: int, is_literal: bool
+        self, exp: BinaryExpression, address: Operand
     ) -> list[Instruction]:
         insts: list[Instruction] = []
         op = exp.operator
         is_zero_flag = is_zero(exp.right)
         if op == BinaryOperator.plus:
             if not is_zero_flag:
-                opcode = Opcode.ADD_LITERAL if is_literal else Opcode.ADD_DIRECT
-                insts.append(Instruction(opcode=opcode, address=address))
+                insts.append(Instruction(opcode=Opcode.ADD, address=address))
                 self._pc += 1
         elif op == BinaryOperator.minus:
             if not is_zero_flag:
-                opcode = Opcode.SUB_LITERAL if is_literal else Opcode.SUB_DIRECT
-                insts.append(Instruction(opcode=opcode, address=address))
+                insts.append(Instruction(opcode=Opcode.SUB, address=address))
                 self._pc += 1
         elif op == BinaryOperator.mult:
             if is_zero_flag:
-                insts.append(Instruction(opcode=Opcode.LOAD_LITERAL, address=0))
+                insts.append(self._load_zero)
             else:
-                opcode = Opcode.MULT_LITERAL if is_literal else Opcode.MULT_DIRECT
-                insts.append(Instruction(opcode=opcode, address=address))
+                insts.append(Instruction(opcode=Opcode.MULT, address=address))
             self._pc += 1
         elif op == BinaryOperator.div:
             if is_zero_flag:
@@ -418,8 +449,7 @@ class RamCompiler:
                     message=f"Attempt to divide by literal 0 in {exp}",
                     value=address,
                 )
-            opcode = Opcode.DIV_LITERAL if is_literal else Opcode.DIV_DIRECT
-            insts.append(Instruction(opcode=opcode, address=address))
+            insts.append(Instruction(opcode=Opcode.DIV, address=address))
             self._pc += 1
         else:
             raise CompileError(

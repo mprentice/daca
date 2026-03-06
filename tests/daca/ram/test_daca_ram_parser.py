@@ -23,56 +23,49 @@ def test_parse_label_and_halt():
 @pytest.mark.parametrize(
     "opcode",
     [
-        Opcode.STORE_DIRECT,
-        Opcode.READ_DIRECT,
-        Opcode.LOAD_DIRECT,
-        Opcode.ADD_DIRECT,
-        Opcode.SUB_DIRECT,
-        Opcode.MULT_DIRECT,
-        Opcode.DIV_DIRECT,
-        Opcode.WRITE_DIRECT,
+        Opcode.STORE,
+        Opcode.READ,
+        Opcode.LOAD,
+        Opcode.ADD,
+        Opcode.SUB,
+        Opcode.MULT,
+        Opcode.DIV,
+        Opcode.WRITE,
     ],
 )
 def test_parse_direct(opcode: Opcode):
-    inst = parse(f"{opcode.name.split('_')[0]} 1").instructions[0]
+    inst = parse(f"{opcode.name} 1").instructions[0]
     assert inst.opcode == opcode
-    assert inst.address == 1
+    assert inst.address.value == 1
 
 
 @pytest.mark.parametrize(
     "opcode",
     [
-        Opcode.STORE_INDIRECT,
-        Opcode.READ_INDIRECT,
-        Opcode.LOAD_INDIRECT,
-        Opcode.ADD_INDIRECT,
-        Opcode.SUB_INDIRECT,
-        Opcode.MULT_INDIRECT,
-        Opcode.DIV_INDIRECT,
-        Opcode.WRITE_INDIRECT,
+        Opcode.STORE,
+        Opcode.READ,
+        Opcode.LOAD,
+        Opcode.ADD,
+        Opcode.SUB,
+        Opcode.MULT,
+        Opcode.DIV,
+        Opcode.WRITE,
     ],
 )
 def test_parse_indirect(opcode: Opcode):
-    inst: Instruction = parse(f"{opcode.name.split('_')[0]} *1").instructions[0]
+    inst: Instruction = parse(f"{opcode.name} *1").instructions[0]
     assert inst.opcode == opcode
-    assert inst.address == 1
+    assert inst.address.value == 1
 
 
 @pytest.mark.parametrize(
     "opcode",
-    [
-        Opcode.LOAD_LITERAL,
-        Opcode.ADD_LITERAL,
-        Opcode.SUB_LITERAL,
-        Opcode.MULT_LITERAL,
-        Opcode.DIV_LITERAL,
-        Opcode.WRITE_LITERAL,
-    ],
+    [Opcode.LOAD, Opcode.ADD, Opcode.SUB, Opcode.MULT, Opcode.DIV, Opcode.WRITE],
 )
 def test_parse_literal(opcode: Opcode):
-    inst: Instruction = parse(f"{opcode.name.split('_')[0]} =1").instructions[0]
+    inst: Instruction = parse(f"{opcode.name} =1").instructions[0]
     assert inst.opcode == opcode
-    assert inst.address == 1
+    assert inst.address.value == 1
 
 
 def test_parse_literal_error():

@@ -4,4 +4,4 @@ from .exc import CompileError, ParseError
 from .lexer import BaseLexer, LineLexer, SimpleRegexLineLexer
 from .parser import BaseParser
 from .token import BufferedTokenStream, Token
-from .util import pairwise
+from .util import pairwise, triplewise

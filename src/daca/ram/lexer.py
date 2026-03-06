@@ -8,7 +8,7 @@ from typing import Generator
 
 from daca.common import ParseError, SimpleRegexLineLexer, Token
 
-from .program import Opname
+from .program import Opcode
 
 
 class Tag(StrEnum):
@@ -19,7 +19,7 @@ class Tag(StrEnum):
     equals = r"\="
     star = r"\*"
     literal_integer = r"[-]?\d+"
-    keyword = "(" + "|".join([o.value for o in Opname]) + ")"
+    keyword = "(" + "|".join([o.name for o in Opcode]) + ")"
     literal_id = r"\w+"
     error = r"."
 

@@ -3,6 +3,7 @@
 import json
 import textwrap
 from argparse import ArgumentParser, FileType
+from contextlib import closing
 from dataclasses import dataclass, field
 from pprint import pprint
 from typing import Iterable, Optional
@@ -96,7 +97,8 @@ class CliApp:
             or args.program.name.lower().endswith(".ramc")
             or args.program.buffer.peek(1).decode().strip().startswith("{")
         ):
-            d = json.load(args.program)
+            with closing(args.program):
+                d = json.load(args.program)
             instructions = d["instructions"]
             if args.decompile:
                 jumptable = d.get("jumptable")
@@ -104,21 +106,24 @@ class CliApp:
                 print(f"{ast}")
             ram = RAM(instructions, input_tape)
         else:
-            tokens: Iterable[Token] = tokenize(args.program)
+            with closing(args.program):
+                tokens: Iterable[Token] = tokenize(args.program)
 
-            if args.tokenize:
-                tokens = list(tokens)
-                if args.verbose:
-                    pprint(tokens)
-                else:
-                    tok_vals = [t.value for t in tokens]
-                    print(
-                        "\n".join(
-                            textwrap.wrap("«" + "» «".join(tok_vals) + "»", width=80)
+                if args.tokenize:
+                    tokens = list(tokens)
+                    if args.verbose:
+                        pprint(tokens)
+                    else:
+                        tok_vals = [t.value for t in tokens]
+                        print(
+                            "\n".join(
+                                textwrap.wrap(
+                                    "«" + "» «".join(tok_vals) + "»", width=80
+                                )
+                            )
                         )
-                    )
 
-            ast = parse(tokens)
+                ast = parse(tokens)
             if args.parse:
                 print(f"{ast}")
 
