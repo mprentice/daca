@@ -71,9 +71,11 @@ def _parse_instruction(tok: Token, ts: BufferedTokenStream) -> Instruction:
         tok.value in (Opcode.STORE.name, Opcode.READ.name)
         and optype == OperandType.LITERAL
     ):
-        v = ts.peek()
-        msg = f"{tok.value} instruction cannot accept literal value ={v.value}"
-        raise ParseError(message=msg, line=v.line, column=v.column, value=v)
+        errtok = ts.peek()
+        msg = f"{tok.value} instruction cannot accept literal value ={errtok.value}"
+        raise ParseError(
+            message=msg, line=errtok.line, column=errtok.column, value=errtok
+        )
 
     opcode = Opcode[tok.value]
     v = int(next(ts).value)
