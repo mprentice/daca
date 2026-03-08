@@ -4,34 +4,52 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import IntEnum
 
-from daca.common import triplewise
+from daca.common import pairwise
 
 
 class Opcode(IntEnum):
     """Enumeration of RAM instructions opcodes."""
 
-    LOAD = 1
-    STORE = 2
-    ADD = 3
-    SUB = 4
-    MULT = 5
-    DIV = 6
-    READ = 7
-    WRITE = 8
-    JUMP = 9
-    JGTZ = 10
-    JZERO = 11
-    HALT = 12
+    LOAD = 4
+    STORE = 8
+    ADD = 12
+    SUB = 16
+    MULT = 20
+    DIV = 24
+    READ = 28
+    WRITE = 32
+    JUMP = 36
+    JGTZ = 40
+    JZERO = 44
+    HALT = 48
+
+
+OPCODE_BITMASK = 0b111100
 
 
 class OperandType(IntEnum):
+    """Enumeration of RAM operand memory access types.
+
+    - DIRECT: Operand is a memory location containing value to use.
+
+    - LITERAL: Operand is a literal integer value.
+
+    - INDIRECT: Operand is a memory location pointing to another memory
+                location with the value to use.
+    """
+
     DIRECT = 0
     LITERAL = 1
     INDIRECT = 2
 
 
+OPTYPE_BITMASK = 0b11
+
+
 @dataclass(frozen=True)
 class Operand:
+    """A RAM operand consists of an integer value and a memory access type."""
+
     value: int = 0
     optype: OperandType = OperandType.DIRECT
 
@@ -53,7 +71,7 @@ class Instruction:
     """
 
     opcode: Opcode
-    address: str | Operand = ""
+    address: str | Operand = Operand()
 
     def __str__(self) -> str:
         if self.opcode == Opcode.HALT:
@@ -71,9 +89,7 @@ class Program:
 
     def __str__(self) -> str:
         """Returns the text representation of the program."""
-        pad = 0
-        if self.jumptable:
-            pad = max([len(k) for k in self.jumptable.keys()]) + 3
+        pad = max([len(k) for k in self.jumptable.keys()]) + 2 if self.jumptable else 0
         jumplabels = {v: k for k, v in self.jumptable.items()}
         lines = []
         for index, inst in enumerate(self.instructions):
@@ -87,17 +103,16 @@ class Program:
         """A bytecode representation of the program."""
         buf: list[int] = []
         for inst in self.instructions:
-            buf.append(inst.opcode.value)
             if inst.opcode == Opcode.HALT:
-                buf.append(0)
+                buf.append(inst.opcode.value)
                 buf.append(0)
             elif inst.opcode in (Opcode.JGTZ, Opcode.JUMP, Opcode.JZERO):
                 assert isinstance(inst.address, str)
-                buf.append(0)
-                buf.append(self.jumptable[inst.address] * 3)
+                buf.append(inst.opcode.value)
+                buf.append(self.jumptable[inst.address] * 2)
             else:
                 assert isinstance(inst.address, Operand)
-                buf.append(inst.address.optype.value)
+                buf.append(inst.opcode.value | inst.address.optype.value)
                 buf.append(inst.address.value)
         return buf
 
@@ -105,14 +120,18 @@ class Program:
     def from_bytecode(
         cls, bytecode: Sequence[int], jumptable: Mapping[str, int] | None = None
     ) -> "Program":
+        """Construct a Program from RAM bytecode.
+
+        A jumptable is optional to restore original instruction labels.
+        """
         n: int = 1
         new_jumptable: dict[str, int] = dict(jumptable) if jumptable else {}
-        jumplabels = {v * 3: k for k, v in new_jumptable.items()}
+        jumplabels = {v * 2: k for k, v in new_jumptable.items()}
 
         instructions: list[Instruction] = []
 
-        for i, t, a in triplewise(bytecode):
-            opcode = Opcode(i)
+        for i, a in pairwise(bytecode):
+            opcode = Opcode(i & OPCODE_BITMASK)
             if opcode == Opcode.HALT:
                 instructions.append(Instruction(opcode=opcode))
             elif opcode in (Opcode.JGTZ, Opcode.JUMP, Opcode.JZERO):
@@ -120,10 +139,10 @@ class Program:
                     lbl = f"lbl{n}"
                     n += 1
                     jumplabels[a] = lbl
-                    new_jumptable[lbl] = a // 3
+                    new_jumptable[lbl] = a // 2
                 instructions.append(Instruction(opcode=opcode, address=jumplabels[a]))
             else:
-                address = Operand(value=a, optype=OperandType(t))
+                address = Operand(value=a, optype=OperandType(i & OPTYPE_BITMASK))
                 inst = Instruction(opcode=opcode, address=address)
                 instructions.append(inst)
 

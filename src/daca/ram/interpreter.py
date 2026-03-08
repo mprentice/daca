@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from math import log2
 from typing import Optional
 
-from .program import Instruction, Opcode, OperandType, Program
+from .program import OPCODE_BITMASK, OPTYPE_BITMASK, Opcode, OperandType, Program
 
 
 class HaltError(ValueError):
@@ -86,7 +86,9 @@ class RAM:
 
         Returns location counter for next instruction.
         """
-        i, t, a = self._bytecode[self.location_counter : self.location_counter + 3]
+        i = self._bytecode[self.location_counter] & OPCODE_BITMASK
+        t = self._bytecode[self.location_counter] & OPTYPE_BITMASK
+        a = self._bytecode[self.location_counter + 1]
 
         if self.halted:
             raise HaltError(
@@ -99,13 +101,14 @@ class RAM:
         elif i in (Opcode.JUMP.value, Opcode.JGTZ.value, Opcode.JZERO.value):
             return m(a)
         else:
+            m = getattr(self, Opcode(i).name)
             return m((t, a))
 
     def LOAD(self, a: tuple[int, int]) -> int:
         """LOAD a: c(0) ← v(a)"""
         self.step_cost += self.t(a)
         self.set_c(0, self.v(a))
-        return self.location_counter + 3
+        return self.location_counter + 2
 
     def STORE(self, i: tuple[int, int]) -> int:
         """STORE i: c(i) ← c(0)
@@ -121,31 +124,31 @@ class RAM:
         else:
             self.step_cost += log_cost(self.c(0)) + log_cost(value)
             self.set_c(value, self.c(0))
-        return self.location_counter + 3
+        return self.location_counter + 2
 
     def ADD(self, a: tuple[int, int]) -> int:
         """ADD a: c(0) ← c(0) + v(a)"""
         self.step_cost += log_cost(self.c(0)) + self.t(a)
         self.set_c(0, self.c(0) + self.v(a))
-        return self.location_counter + 3
+        return self.location_counter + 2
 
     def SUB(self, a: tuple[int, int]) -> int:
         """SUB a: c(0) ← c(0) - v(a)"""
         self.step_cost += log_cost(self.c(0)) + self.t(a)
         self.set_c(0, self.c(0) - self.v(a))
-        return self.location_counter + 3
+        return self.location_counter + 2
 
     def MULT(self, a: tuple[int, int]) -> int:
         """MULT a: c(0) ← c(0) * v(a)"""
         self.step_cost += log_cost(self.c(0)) + self.t(a)
         self.set_c(0, self.c(0) * self.v(a))
-        return self.location_counter + 3
+        return self.location_counter + 2
 
     def DIV(self, a: tuple[int, int]) -> int:
         """DIV a: c(0) ← c(0) * v(a)"""
         self.step_cost += log_cost(self.c(0)) + self.t(a)
         self.set_c(0, self.c(0) // self.v(a))
-        return self.location_counter + 3
+        return self.location_counter + 2
 
     def READ(self, i: tuple[int, int]) -> int:
         """READ i: c(i) ← current input tape symbol
@@ -175,7 +178,7 @@ class RAM:
             self.step_cost += log_cost(space) + log_cost(value)
             self.set_c(value, space)
 
-        return self.location_counter + 3
+        return self.location_counter + 2
 
     def WRITE(self, a: tuple[int, int]) -> int:
         """WRITE a: v(a) is printed on the output tape
@@ -184,7 +187,7 @@ class RAM:
         """
         self.step_cost += self.t(a)
         self.output_tape.append(self.v(a))
-        return self.location_counter + 3
+        return self.location_counter + 2
 
     def JUMP(self, b: int) -> int:
         """JUMP b: set location counter to instruction labeled b"""
@@ -201,7 +204,7 @@ class RAM:
         if self.c(0) > 0:
             return b
         else:
-            return self.location_counter + 3
+            return self.location_counter + 2
 
     def JZERO(self, b: int) -> int:
         """JZERO b: conditionally set location counter to instruction labeled b
@@ -213,7 +216,7 @@ class RAM:
         if self.c(0) == 0:
             return b
         else:
-            return self.location_counter + 3
+            return self.location_counter + 2
 
     def HALT(self) -> int:
         """Halt execution of machine."""
