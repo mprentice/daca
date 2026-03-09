@@ -3,15 +3,9 @@ from dataclasses import dataclass, field
 from math import log2
 from typing import Optional
 
+from daca.common import HaltError
+
 from .program import OPCODE_BITMASK, OPTYPE_BITMASK, Opcode, OperandType, Program
-
-
-class HaltError(ValueError):
-    """Thrown when trying to execute a halted RAM."""
-
-
-class ReadError(IndexError):
-    """Thrown when trying to read past end of input tape."""
 
 
 @dataclass
@@ -40,9 +34,7 @@ class RAM:
     _bytecode: Sequence[int] = field(init=False)
 
     def __post_init__(self):
-        self._bytecode = (
-            self.program.bytecode if isinstance(self.program, Program) else self.program
-        )
+        self.reset()
 
     def reset(self) -> None:
         self.read_head = 0
@@ -52,6 +44,9 @@ class RAM:
         self.halted = False
         self.step_counter = 0
         self.step_cost = 0
+        self._bytecode = (
+            self.program.bytecode if isinstance(self.program, Program) else self.program
+        )
 
     def run(self, input_tape: Optional[Sequence[int]] = None) -> None:
         """Run the machine until reaching a halting state.
@@ -61,7 +56,6 @@ class RAM:
 
         Throws:
             HaltError if the machine is in a halted state.
-            ReadError if attempting to read past the end of the input tape.
         """
         if input_tape is not None:
             self.input_tape = input_tape
@@ -74,7 +68,6 @@ class RAM:
 
         Throws:
             HaltError if the machine is in a halted state.
-            ReadError if attempting to read past the end of the input tape.
         """
         if self.halted:
             raise HaltError("Attempt to step program on halted machine state")
@@ -101,7 +94,6 @@ class RAM:
         elif i in (Opcode.JUMP.value, Opcode.JGTZ.value, Opcode.JZERO.value):
             return m(a)
         else:
-            m = getattr(self, Opcode(i).name)
             return m((t, a))
 
     def LOAD(self, a: tuple[int, int]) -> int:

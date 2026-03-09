@@ -35,3 +35,7 @@ class ParseError(BaseDacaError):
 
 class CompileError(BaseDacaError):
     """Error to indicate a problem with compiling a program."""
+
+
+class HaltError(ValueError):
+    """Thrown when trying to execute a halted machine (e.g. RAM or RASP)."""
