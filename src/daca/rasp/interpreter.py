@@ -268,11 +268,11 @@ class RASP:
 
     def t(self, a: int) -> int:
         """Logarithmic cost t(a) for an operand."""
-        return log_cost(a) + log_cost(self.c(a))
+        return log_cost(a) + log_cost(self.c(a)) + log_cost(self.location_counter)
 
     def t_literal(self, a: int) -> int:
         """Logarithmic cost t(a) for an operand."""
-        return log_cost(a)
+        return log_cost(a) + log_cost(self.location_counter)
 
     @property
     def log_space_cost(self) -> int:
