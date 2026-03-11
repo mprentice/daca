@@ -44,7 +44,7 @@ class Instruction:
         if self.opcode == Opcode.HALT:
             return self.opcode.name
         elif self.opcode.name.endswith("_LITERAL"):
-            return f"{self.opcode.name:<5} ={self.address}"
+            return f"{self.opcode.name.split('_')[0]:<5} ={self.address}"
         else:
             return f"{self.opcode.name:<5} {self.address}"
 
