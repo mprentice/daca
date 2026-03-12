@@ -1,4 +1,5 @@
 import argparse
+import importlib.resources
 from contextlib import closing
 from typing import Optional
 
@@ -79,7 +80,44 @@ def ram_to_rasp(p: ram.Program) -> rasp.Program:
 
 
 def rasp_to_ram(p: rasp.Program) -> ram.Program:
-    pass
+    ramp = ram.parse(importlib.resources.read_text("examples", "ch1/emulate_rasp.ram"))
+    rasp_lc = ramp.jumptable["loadrasp"]
+    simulator = list(ramp.instructions[0:rasp_lc])
+    rasp_loader: list[ram.Instruction] = []
+    for pc, inst in enumerate(p.instructions):
+        rasp_loader.append(
+            ram.Instruction(
+                opcode=ram.Opcode.LOAD,
+                address=ram.Operand(
+                    value=inst.opcode.value, optype=ram.OperandType.LITERAL
+                ),
+            )
+        )
+        rasp_loader.append(
+            ram.Instruction(
+                opcode=ram.Opcode.STORE,
+                address=ram.Operand(value=pc * 2 + 4, optype=ram.OperandType.DIRECT),
+            )
+        )
+        rasp_loader.append(
+            ram.Instruction(
+                opcode=ram.Opcode.LOAD,
+                address=ram.Operand(value=inst.address, optype=ram.OperandType.LITERAL),
+            )
+        )
+        rasp_loader.append(
+            ram.Instruction(
+                opcode=ram.Opcode.STORE,
+                address=ram.Operand(value=pc * 2 + 5, optype=ram.OperandType.DIRECT),
+            )
+        )
+
+    rasp_loader.append(ram.Instruction(opcode=ram.Opcode.JUMP, address="startrasp"))
+    new_jumptable = dict(ramp.jumptable)
+    del new_jumptable["readrasp"]
+    return ram.Program(
+        instructions=tuple(simulator + rasp_loader), jumptable=new_jumptable
+    )
 
 
 def main(argv: Optional[list[str]] = None) -> None:

@@ -14,6 +14,7 @@ from .program import Opcode
 class Tag(StrEnum):
     """Token tags and corresponding regular expressions to match them."""
 
+    comment = r"#.*$"
     whitespace = r"\s+"
     equals = r"\="
     star = r"\*"
@@ -31,8 +32,8 @@ class Lexer(SimpleRegexLineLexer):
 
     def tokenize_line(self, s: str) -> Generator[Token, None, None]:
         for token in super().tokenize_line(s):
-            if token.tag == Tag.whitespace.name:
-                # skip whitespace tokens
+            if token.tag == Tag.whitespace.name or token.tag == Tag.comment.name:
+                # skip whitespace and comment tokens
                 continue
             elif token.tag == Tag.error.name:
                 raise ParseError(line=self.line, column=self.column, value=token.value)

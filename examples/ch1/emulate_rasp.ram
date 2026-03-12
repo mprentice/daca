@@ -1,0 +1,273 @@
+              JUMP loadrasp
+startrasp:    LOAD =4
+              STORE 2
+raspstep:     LOAD *2
+              SUB =1
+              JZERO loaddirect
+              LOAD *2
+              SUB =2
+              JZERO loadliteral
+              LOAD *2
+              SUB =3
+              JZERO storedirect
+              LOAD *2
+              SUB =4
+              JZERO adddirect
+              LOAD *2
+              SUB =5
+              JZERO addliteral
+              LOAD *2
+              SUB =6
+              JZERO subdirect
+              LOAD *2
+              SUB =7
+              JZERO subliteral
+              LOAD *2
+              SUB =8
+              JZERO multdirect
+              LOAD *2
+              SUB =9
+              JZERO multliteral
+              LOAD *2
+              SUB =10
+              JZERO divdirect
+              LOAD *2
+              SUB =11
+              JZERO divliteral
+              LOAD *2
+              SUB =12
+              JZERO readdirect
+              LOAD *2
+              SUB =13
+              JZERO writedirect
+              LOAD *2
+              SUB =14
+              JZERO writeliteral
+              LOAD *2
+              SUB =15
+              JZERO jumptgt
+              LOAD *2
+              SUB =16
+              JZERO jgtztgt
+              LOAD *2
+              SUB =17
+              JZERO jzerotgt
+              HALT
+loaddirect:   LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              LOAD *2           # load operand
+              ADD =3            # offset rasp address for ram simulator
+              STORE 1           # store into indirect address
+              LOAD *1           # load contents of rasp memory
+              STORE 3           # store rasp register into rasp accumulator
+              LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              JUMP raspstep
+loadliteral:  LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              LOAD *2           # load literal operand
+              STORE 3           # store literal operand into rasp accumulator
+              LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              JUMP raspstep
+storedirect:  LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              LOAD *2           # load operand
+              ADD =3            # offset rasp address for ram simulator
+              STORE 1           # store into indirect address
+              LOAD 3            # load contents of rasp accumulator
+              STORE *1          # store rasp accumulator into rasp memory
+              LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              JUMP raspstep
+adddirect:    LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              LOAD *2           # load operand
+              ADD =3            # offset rasp address for ram simulator
+              STORE 1           # store into indirect address
+              LOAD 3            # load contents of rasp accumulator
+              ADD *1            # perform addition
+              STORE 3           # store result into rasp accumulator
+              LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              JUMP raspstep
+addliteral:   LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              LOAD *2           # load operand
+              STORE 1           # store operand into indirect address
+              LOAD 3            # load contents of rasp accumulator
+              ADD 1             # perform addition
+              STORE 3           # store result into rasp accumulator
+              LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              JUMP raspstep
+subdirect:    LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              LOAD *2           # load operand
+              ADD =3            # offset rasp address for ram simulator
+              STORE 1           # store into indirect address
+              LOAD 3            # load contents of rasp accumulator
+              SUB *1            # perform subtraction
+              STORE 3           # store result into rasp accumulator
+              LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              JUMP raspstep
+subliteral:   LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              LOAD *2           # load operand
+              STORE 1           # store operand into indirect address
+              LOAD 3            # load contents of rasp accumulator
+              SUB 1             # perform subtraction
+              STORE 3           # store result into rasp accumulator
+              LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              JUMP raspstep
+multdirect:   LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              LOAD *2           # load operand
+              ADD =3            # offset rasp address for ram simulator
+              STORE 1           # store into indirect address
+              LOAD 3            # load contents of rasp accumulator
+              MULT *1           # perform multiplication
+              STORE 3           # store result into rasp accumulator
+              LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              JUMP raspstep
+multliteral:  LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              LOAD *2           # load operand
+              STORE 1           # store operand into indirect address
+              LOAD 3            # load contents of rasp accumulator
+              MULT 1            # perform multiplication
+              STORE 3           # store result into rasp accumulator
+              LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              JUMP raspstep
+divdirect:    LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              LOAD *2           # load operand
+              ADD =3            # offset rasp address for ram simulator
+              STORE 1           # store into indirect address
+              LOAD 3            # load contents of rasp accumulator
+              DIV *1            # perform division
+              STORE 3           # store result into rasp accumulator
+              LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              JUMP raspstep
+divliteral:   LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              LOAD *2           # load operand
+              STORE 1           # store operand into indirect address
+              LOAD 3            # load contents of rasp accumulator
+              DIV 1             # perform division
+              STORE 3           # store result into rasp accumulator
+              LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              JUMP raspstep
+readdirect:   LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              LOAD *2           # load operand
+              ADD =3            # offset rasp address for ram simulator
+              STORE 1           # store into indirect address
+              READ *1           # perform read
+              LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              JUMP raspstep
+writedirect:  LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              LOAD *2           # load operand
+              ADD =3            # offset rasp address for ram simulator
+              STORE 1           # store into indirect address
+              WRITE *1          # perform write
+              LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              JUMP raspstep
+writeliteral: LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              LOAD *2           # load operand
+              STORE 1           # store into indirect address
+              WRITE 1           # perform write
+              LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              JUMP raspstep
+jumptgt:      LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              LOAD *2           # load operand
+              ADD =3            # offset rasp address for ram simulator
+              STORE 2           # store into rasp location counter
+              JUMP raspstep
+jgtztgt:      LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              LOAD *2           # load operand
+              ADD =3            # offset rasp address for ram simulator
+              STORE 1           # store into indirect address
+              LOAD 3            # load rasp accumulator into ram accumulator
+              JGTZ jgtztgt1     # jump to true branch
+              LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              JUMP raspstep
+jgtztgt1:     LOAD 1            # set rasp location counter ("jump to target")
+              STORE 2
+              JUMP raspstep
+jzerotgt:     LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              LOAD *2           # load operand
+              ADD =3            # offset rasp address for ram simulator
+              STORE 1           # store into indirect address
+              LOAD 3            # load rasp accumulator into ram accumulator
+              JZERO jzerotgt1   # jump to true branch
+              LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              JUMP raspstep
+jzerotgt1:    LOAD 1            # set rasp location counter ("jump to target")
+              STORE 2
+              JUMP raspstep
+loadrasp:     LOAD =4           # init lc = 4
+              STORE 2
+readrasp:     READ *2           # read instruction opcode into *lc
+              LOAD *2
+              JZERO startrasp   # program load finished, run RASP simulation
+              LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              READ *2           # read operand into *lc
+              LOAD 2            # inc lc
+              ADD =1
+              STORE 2
+              JUMP readrasp     # read next instruction
