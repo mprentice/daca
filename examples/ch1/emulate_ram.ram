@@ -1,0 +1,427 @@
+# memory layout:
+#   0: emulator accumulator
+#   1: indirect address
+#   2: location counter
+#   3: n+1 (location of ram accumulator register)
+# 4-n: ram instructions
+# n+1: ram accumulator
+               JUMP loadram
+startram:      LOAD 2
+               STORE 3
+               LOAD =0          # initialize ram accum to 0
+               STORE *3
+               LOAD =4
+               STORE 2
+ramstep:       LOAD *2
+               SUB =4
+               JZERO loaddirect
+               LOAD *2
+               SUB =5
+               JZERO loadliteral
+               LOAD *2
+               SUB =6
+               JZERO loadindirect
+               LOAD *2
+               SUB =8
+               JZERO storedirect
+               LOAD *2
+               SUB =10
+               JZERO storeindirect
+               LOAD *2
+               SUB =12
+               JZERO adddirect
+               LOAD *2
+               SUB =13
+               JZERO addliteral
+               LOAD *2
+               SUB =14
+               JZERO addindirect
+               LOAD *2
+               SUB =16
+               JZERO subdirect
+               LOAD *2
+               SUB =17
+               JZERO subliteral
+               LOAD *2
+               SUB =18
+               JZERO subindirect
+               LOAD *2
+               SUB =20
+               JZERO multdirect
+               LOAD *2
+               SUB =21
+               JZERO multliteral
+               LOAD *2
+               SUB =22
+               JZERO multindirect
+               LOAD *2
+               SUB =24
+               JZERO divdirect
+               LOAD *2
+               SUB =25
+               JZERO divliteral
+               LOAD *2
+               SUB =26
+               JZERO divindirect
+               LOAD *2
+               SUB =28
+               JZERO readdirect
+               LOAD *2
+               SUB =30
+               JZERO readindirect
+               LOAD *2
+               SUB =32
+               JZERO writedirect
+               LOAD *2
+               SUB =33
+               JZERO writeliteral
+               LOAD *2
+               SUB =34
+               JZERO writeindirect
+               LOAD *2
+               SUB =36
+               JZERO jumptgt
+               LOAD *2
+               SUB =40
+               JZERO jgtztgt
+               LOAD *2
+               SUB =44
+               JZERO jzerotgt
+               HALT
+loaddirect:    LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               LOAD *2          # load operand
+               ADD 3            # offset ram address for ram simulator
+               STORE 1          # store into indirect address
+               LOAD *1          # load contents of ram memory
+               STORE *3         # store ram register into ram accumulator
+               LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               JUMP ramstep
+loadliteral:   LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               LOAD *2          # load literal operand
+               STORE *3         # store literal operand into ram accumulator
+               LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               JUMP ramstep
+loadindirect:  LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               LOAD *2          # load operand
+               ADD 3            # offset ram address for ram simulator
+               STORE 1          # store into indirect address
+               LOAD *1          # load contents of ram memory (indirect)
+               ADD 3            # offset ram address for ram simulator
+               STORE 1          # store into indirect address
+               LOAD *1          # load contents of ram memory (direct)
+               STORE *3         # store ram register into ram accumulator
+               LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               JUMP ramstep
+storedirect:   LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               LOAD *2          # load operand
+               ADD 3            # offset ram address for ram simulator
+               STORE 1          # store into indirect address
+               LOAD *3          # load contents of ram accumulator
+               STORE *1         # store ram accumulator into ram memory
+               LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               JUMP ramstep
+storeindirect: LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               LOAD *2          # load operand
+               ADD 3            # offset ram address for ram simulator
+               STORE 1          # store into indirect address
+               LOAD *1          # load contents of ram memory (indirect)
+               ADD 3            # offset ram address for ram simulator
+               STORE 1          # store into indirect address
+               LOAD *3          # load contents of ram accumulator
+               STORE *1         # store ram accumulator into ram memory
+               LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               JUMP ramstep
+adddirect:     LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               LOAD *2          # load operand
+               ADD 3            # offset ram address for ram simulator
+               STORE 1          # store into indirect address
+               LOAD *3          # load contents of ram accumulator
+               ADD *1           # perform addition
+               STORE *3         # store result into ram accumulator
+               LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               JUMP ramstep
+addliteral:    LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               LOAD *2          # load operand
+               STORE 1          # store operand into indirect address
+               LOAD *3          # load contents of ram accumulator
+               ADD 1            # perform addition
+               STORE *3         # store result into ram accumulator
+               LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               JUMP ramstep
+addindirect:   LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               LOAD *2          # load operand
+               ADD 3            # offset ram address for ram simulator
+               STORE 1          # store into indirect address
+               LOAD *1          # load contents of ram memory (indirect)
+               ADD 3            # offset ram address for ram simulator
+               STORE 1          # store into indirect address
+               LOAD *3          # load contents of ram accumulator
+               ADD *1           # perform addition
+               STORE *3         # store result into ram accumulator
+               LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               JUMP ramstep
+subdirect:     LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               LOAD *2          # load operand
+               ADD 3            # offset ram address for ram simulator
+               STORE 1          # store into indirect address
+               LOAD *3          # load contents of ram accumulator
+               SUB *1           # perform subtraction
+               STORE *3         # store result into ram accumulator
+               LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               JUMP ramstep
+subliteral:    LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               LOAD *2          # load operand
+               STORE 1          # store operand into indirect address
+               LOAD *3          # load contents of ram accumulator
+               SUB 1            # perform subtraction
+               STORE *3         # store result into ram accumulator
+               LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               JUMP ramstep
+subindirect:   LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               LOAD *2          # load operand
+               ADD 3            # offset ram address for ram simulator
+               STORE 1          # store into indirect address
+               LOAD *1          # load contents of ram memory (indirect)
+               ADD 3            # offset ram address for ram simulator
+               STORE 1          # store into indirect address
+               LOAD *3          # load contents of ram accumulator
+               SUB *1           # perform subtraction
+               STORE *3         # store result into ram accumulator
+               LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               JUMP ramstep
+multdirect:    LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               LOAD *2          # load operand
+               ADD 3            # offset ram address for ram simulator
+               STORE 1          # store into indirect address
+               LOAD *3          # load contents of ram accumulator
+               MULT *1          # perform multiplication
+               STORE *3         # store result into ram accumulator
+               LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               JUMP ramstep
+multliteral:   LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               LOAD *2          # load operand
+               STORE 1          # store operand into indirect address
+               LOAD *3          # load contents of ram accumulator
+               MULT 1           # perform multiplication
+               STORE *3         # store result into ram accumulator
+               LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               JUMP ramstep
+multindirect:  LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               LOAD *2          # load operand
+               ADD 3            # offset ram address for ram simulator
+               STORE 1          # store into indirect address
+               LOAD *1          # load contents of ram memory (indirect)
+               ADD 3            # offset ram address for ram simulator
+               STORE 1          # store into indirect address
+               LOAD *3          # load contents of ram accumulator
+               MULT *1          # perform muliplication
+               STORE *3         # store result into ram accumulator
+               LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               JUMP ramstep
+divdirect:     LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               LOAD *2          # load operand
+               ADD 3            # offset ram address for ram simulator
+               STORE 1          # store into indirect address
+               LOAD *3          # load contents of ram accumulator
+               DIV *1           # perform division
+               STORE *3         # store result into ram accumulator
+               LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               JUMP ramstep
+divliteral:    LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               LOAD *2          # load operand
+               STORE 1          # store operand into indirect address
+               LOAD *3          # load contents of ram accumulator
+               DIV 1            # perform division
+               STORE *3         # store result into ram accumulator
+               LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               JUMP ramstep
+divindirect:   LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               LOAD *2          # load operand
+               ADD 3            # offset ram address for ram simulator
+               STORE 1          # store into indirect address
+               LOAD *1          # load contents of ram memory (indirect)
+               ADD 3            # offset ram address for ram simulator
+               STORE 1          # store into indirect address
+               LOAD *3          # load contents of ram accumulator
+               DIV *1           # perform division
+               STORE *3         # store result into ram accumulator
+               LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               JUMP ramstep
+readdirect:    LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               LOAD *2          # load operand
+               ADD 3            # offset ram address for ram simulator
+               STORE 1          # store into indirect address
+               READ *1          # perform read
+               LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               JUMP ramstep
+readindirect:  LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               LOAD *2          # load operand
+               ADD 3            # offset ram address for ram simulator
+               STORE 1          # store into indirect address
+               LOAD *1          # load contents of ram memory (indirect)
+               ADD 3            # offset ram address for ram simulator
+               STORE 1          # store into indirect address
+               READ *1          # perform read
+               LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               JUMP ramstep
+writedirect:   LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               LOAD *2          # load operand
+               ADD 3            # offset ram address for ram simulator
+               STORE 1          # store into indirect address
+               WRITE *1         # perform write
+               LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               JUMP ramstep
+writeliteral:  LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               LOAD *2          # load operand
+               STORE 1          # store into indirect address
+               WRITE 1          # perform write
+               LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               JUMP ramstep
+writeindirect: LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               LOAD *2          # load operand
+               ADD 3            # offset ram address for ram simulator
+               STORE 1          # store into indirect address
+               LOAD *1          # load contents of ram memory (indirect)
+               ADD 3            # offset ram address for ram simulator
+               STORE 1          # store into indirect address
+               WRITE *1         # perform write
+               LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               JUMP ramstep
+jumptgt:       LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               LOAD *2          # load operand
+               ADD =4           # offset ram address for ram simulator
+               STORE 2          # store into ram location counter
+               JUMP ramstep
+jgtztgt:       LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               LOAD *2          # load operand
+               ADD =4           # offset ram address for ram simulator
+               STORE 1          # store into indirect address
+               LOAD *3          # load ram accumulator into ram accumulator
+               JGTZ jgtztgt1    # jump to true branch
+               LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               JUMP ramstep
+jgtztgt1:      LOAD 1           # set ram location counter ("jump to target")
+               STORE 2
+               JUMP ramstep
+jzerotgt:      LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               LOAD *2          # load operand
+               ADD =4           # offset ram address for ram simulator
+               STORE 1          # store into indirect address
+               LOAD *3          # load ram accumulator into ram accumulator
+               JZERO jzerotgt1  # jump to true branch
+               LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               JUMP ramstep
+jzerotgt1:     LOAD 1           # set ram location counter ("jump to target")
+               STORE 2
+               JUMP ramstep
+loadram:       LOAD =4          # init lc = 4
+               STORE 2
+readram:       READ *2          # read instruction opcode into *lc
+               LOAD *2
+               JZERO startram   # program load finished, run RAM simulation
+               LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               READ *2          # read operand into *lc
+               LOAD 2           # inc lc
+               ADD =1
+               STORE 2
+               JUMP readram     # read next instruction
