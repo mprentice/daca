@@ -20,7 +20,7 @@ def ram_to_rasp(p: ram.Program) -> rasp.Program:
             pc += 6
         else:
             pc += 1
-    indirect_register = pc * 2
+    indirect_register = pc * 2 + 1
     register_offset = indirect_register + 1
     for pc, inst in enumerate(p.instructions):
         if inst.opcode == ram.Opcode.HALT:
