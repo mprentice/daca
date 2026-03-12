@@ -73,9 +73,6 @@ loadliteral:  LOAD 2            # inc lc
               LOAD 2            # inc lc
               ADD =1
               STORE 2
-              LOAD 2            # inc lc
-              ADD =1
-              STORE 2
               JUMP raspstep
 storedirect:  LOAD 2            # inc lc
               ADD =1
