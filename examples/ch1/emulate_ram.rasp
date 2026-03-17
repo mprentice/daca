@@ -11,6 +11,9 @@
 #    <ACC>: <n>+1 (location of ram accumulator register), i + 2
 # <R0>-<n>: ram instructions, i + 3
 #    <n>+1: ram accumulator register
+#
+# Note: <I> isn't strictly necessary but makes this emulator code easier to
+# read.
 
                 LOAD  =i+3              # init <LC> ← <R0>
                 STORE i+1
