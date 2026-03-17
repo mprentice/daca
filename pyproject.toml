@@ -5,7 +5,7 @@ description = "Design & Analysis of Computer Algorithms in Python"
 authors = ["Data Mike <mjp35@cornell.edu>"]
 license = "MIT"
 readme = "README.md"
-include = [ "examples" ]
+packages = [ { include = "examples" }, { include = "daca", from = "src" } ]
 
 [tool.poetry.scripts]
 daca = "daca.cli:main"

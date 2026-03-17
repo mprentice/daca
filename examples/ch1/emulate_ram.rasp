@@ -1,0 +1,544 @@
+# A RASP that emulates running a RAM program encoded on its input tape. The
+# input tape should consist of the bytecode of a RAM program, followed by a 0,
+# followed by the program input.
+#
+# Memory layout:
+#
+#        0: emulator accumulator
+#  1-(i-1): this rasp program
+#      <I>: register for temporary storage/intermediate results
+#     <LC>: location counter (lc), i + 1
+#    <ACC>: <n>+1 (location of ram accumulator register), i + 2
+# <R0>-<n>: ram instructions, i + 3
+#    <n>+1: ram accumulator register
+
+                LOAD  =i+3              # init <LC> ← <R0>
+                STORE i+1
+
+readram:        LOAD  i+1               # read instruction opcode into *<LC>
+                STORE rr1+1
+                STORE rr2+1
+           rr1: READ  -99
+           rr2: LOAD  -99
+                JZERO startram          # program load finished, run RAM
+                                        # simulation
+
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+
+                STORE rr3+1             # read operand into *<LC>
+           rr3: READ  -99
+
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+
+                JUMP readram            # read next instruction
+
+startram:       LOAD  i+1               # <ACC> ← <LC>
+                STORE i+2
+
+                STORE sr1+1             # initialize *<ACC> ← 0
+                LOAD  =0
+           sr1: STORE -99
+
+                LOAD  =i+3              # init <LC> <- <R0> to begin simulation
+                STORE i+1
+
+ramstep:        LOAD  i+1               # Run a single step using a big dispatch
+                                        # table
+                STORE rs1+1
+           rs1: LOAD  -99
+                STORE i
+                SUB   =4
+                JZERO loaddirect
+                LOAD  i
+                SUB   =5
+                JZERO loadliteral
+                LOAD  i
+                SUB   =6
+                JZERO loadindirect
+                LOAD  i
+                SUB   =8
+                JZERO storedirect
+                LOAD  i
+                SUB   =10
+                JZERO storeindirect
+                LOAD  i
+                SUB   =12
+                JZERO adddirect
+                LOAD  i
+                SUB   =13
+                JZERO addliteral
+                LOAD  i
+                SUB   =14
+                JZERO addindirect
+                LOAD  i
+                SUB   =16
+                JZERO subdirect
+                LOAD  i
+                SUB   =17
+                JZERO subliteral
+                LOAD  i
+                SUB   =18
+                JZERO subindirect
+                LOAD  i
+                SUB   =20
+                JZERO multdirect
+                LOAD  i
+                SUB   =21
+                JZERO multliteral
+                LOAD  i
+                SUB   =22
+                JZERO multindirect
+                LOAD  i
+                SUB   =24
+                JZERO divdirect
+                LOAD  i
+                SUB   =25
+                JZERO divliteral
+                LOAD  i
+                SUB   =26
+                JZERO divindirect
+                LOAD  i
+                SUB   =28
+                JZERO readdirect
+                LOAD  i
+                SUB   =30
+                JZERO readindirect
+                LOAD  i
+                SUB   =32
+                JZERO writedirect
+                LOAD  i
+                SUB   =33
+                JZERO writeliteral
+                LOAD  i
+                SUB   =34
+                JZERO writeindirect
+                LOAD  i
+                SUB   =36
+                JZERO jumptgt
+                LOAD  i
+                SUB   =40
+                JZERO jgtztgt
+                LOAD  i
+                SUB   =44
+                JZERO jzerotgt
+                HALT
+
+loaddirect:     LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE ld1+1             # poke direct operand into next load
+           ld1: LOAD  -99               # load direct address
+                ADD   i+2               # offset ram address for ram simulator
+                STORE ld2+1             # poke direct address into op
+                LOAD  i+2               # load <ACC>
+                STORE ld3+1             # poke <ACC> into result storage
+           ld2: LOAD  -99               # load operand
+           ld3: STORE -99               # store *<ACC>
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  ramstep
+
+loadliteral:    LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE ll1+1             # poke literal operand address into op
+                LOAD  i+2               # load <ACC>
+                STORE ll2+1             # poke <ACC> into result storage
+           ll1: LOAD  -99               # load =operand
+           ll2: STORE -99               # store *<ACC>
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  ramstep
+
+loadindirect:   LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE li1+1             # poke indirect operand into next load
+           li1: LOAD  -99               # load indirect address
+                ADD   i+2               # offset ram address for ram simulator
+                STORE li2+1             # poke into next load
+           li2: LOAD  -99               # load direct address
+                ADD   i+2               # offset ram address
+                STORE li3+1             # poke direct address into op
+                LOAD  i+2               # load <ACC>
+                STORE li4+1             # poke <ACC> into result storage
+           li3: LOAD  -99               # load *operand
+           li4: STORE -99               # store *<ACC>
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  ramstep
+
+storedirect:    LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE std1+1            # poke direct operand into next load
+          std1: LOAD  -99               # load direct address
+                ADD   i+2               # offset ram address for ram simulator
+                STORE std3+1            # poke direct address into op
+                LOAD  i+2               # load <ACC>
+                STORE std2+1            # poke <ACC> into next load
+          std2: LOAD  -99               # load *<ACC>
+          std3: STORE -99               # store operand
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  ramstep
+
+storeindirect:  LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE sti1+1            # poke indirect operand into next load
+          sti1: LOAD  -99               # load indirect address
+                ADD   i+2               # offset ram address for ram simulator
+                STORE sti2+1            # poke into next load
+          sti2: LOAD  -99               # load direct address
+                ADD   i+2               # offset ram address
+                STORE sti4+1            # poke direct address into op
+                LOAD  i+2               # load <ACC>
+                STORE sti3+1            # poke <ACC> into next load
+          sti3: LOAD  -99               # load *<ACC>
+          sti4: STORE -99               # store *operand
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  ramstep
+
+adddirect:      LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE add1+1            # poke direct operand into next load
+          add1: LOAD  -99               # load direct address
+                ADD   i+2               # offset ram address for ram simulator
+                STORE add3+1            # poke direct addres into op
+                LOAD  i+2               # load <ACC>
+                STORE add2+1            # poke <ACC> into next load
+                STORE add4+1            # poke <ACC> into result storage
+          add2: LOAD  -99               # load *<ACC>
+          add3: ADD   -99               # add operand
+          add4: STORE -99               # store *<ACC>
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  ramstep
+
+addliteral:     LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE adl2+1            # poke literal operand into op
+                LOAD  i+2               # load <ACC>
+                STORE adl1+1            # poke <ACC> into next load
+                STORE adl3+1            # poke <ACC> into result storage
+          adl1: LOAD  -99               # load *<ACC>
+          adl2: ADD   -99               # add =operand
+          adl3: STORE -99               # store *<ACC>
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  ramstep
+
+addindirect:    LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE adi1+1            # poke operand into next load
+          adi1: LOAD  -99               # load indirect address
+                ADD   i+2               # offset ram address for ram simulator
+                STORE adi2+1            # poke indirect address into next load
+          adi2: LOAD -99                # load direct address
+                ADD   i+2               # offset ram address
+                STORE adi4+1            # poke direct address into op
+                LOAD  i+2               # load <ACC>
+                STORE adi3+1            # poke <ACC> into next load
+                STORE adi5+1            # poke <ACC> into result storage
+          adi3: LOAD  -99               # load *<ACC>
+          adi4: ADD   -99               # add *operand
+          adi5: STORE -99               # store *<ACC>
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  ramstep
+
+subdirect:      LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE sud1+1            # poke direct operand into next load
+          sud1: LOAD  -99               # load direct address
+                ADD   i+2               # offset ram address for ram simulator
+                STORE sud3+1            # poke direct addres into op
+                LOAD  i+2               # load <ACC>
+                STORE sud2+1            # poke <ACC> into next load
+                STORE sud4+1            # poke <ACC> into result storage
+          sud2: LOAD  -99               # load *<ACC>
+          sud3: SUB   -99               # sub operand
+          sud4: STORE -99               # store *<ACC>
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  ramstep
+
+subliteral:     LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE sul2+1            # poke literal operand into op
+                LOAD  i+2               # load <ACC>
+                STORE sul1+1            # poke <ACC> into next load
+                STORE sul3+1            # poke <ACC> into result storage
+          sul1: LOAD  -99               # load *<ACC>
+          sul2: SUB   -99               # sub =operand
+          sul3: STORE -99               # store *<ACC>
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  ramstep
+
+subindirect:    LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE sui1+1            # poke operand into next load
+          sui1: LOAD  -99               # load indirect address
+                ADD   i+2               # offset ram address for ram simulator
+                STORE sui2+1            # poke indirect address into next load
+          sui2: LOAD -99                # load direct address
+                ADD   i+2               # offset ram address
+                STORE sui4+1            # poke direct address into op
+                LOAD  i+2               # load <ACC>
+                STORE sui3+1            # poke <ACC> into next load
+                STORE sui5+1            # poke <ACC> into result storage
+          sui3: LOAD  -99               # load *<ACC>
+          sui4: SUB   -99               # sub *operand
+          sui5: STORE -99               # store *<ACC>
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  ramstep
+
+multdirect:     LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE mud1+1            # poke direct operand into next load
+          mud1: LOAD  -99               # load direct address
+                ADD   i+2               # offset ram address for ram simulator
+                STORE mud3+1            # poke direct addres into op
+                LOAD  i+2               # load <ACC>
+                STORE mud2+1            # poke <ACC> into next load
+                STORE mud4+1            # poke <ACC> into result storage
+          mud2: LOAD  -99               # load *<ACC>
+          mud3: MULT  -99               # mult operand
+          mud4: STORE -99               # store *<ACC>
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  ramstep
+
+multliteral:    LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE mul2+1            # poke literal operand into op
+                LOAD  i+2               # load <ACC>
+                STORE mul1+1            # poke <ACC> into next load
+                STORE mul3+1            # poke <ACC> into result storage
+          mul1: LOAD  -99               # load *<ACC>
+          mul2: MULT  -99               # mult =operand
+          mul3: STORE -99               # store *<ACC>
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  ramstep
+
+multindirect:   LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE mui1+1            # poke operand into next load
+          mui1: LOAD  -99               # load indirect address
+                ADD   i+2               # offset ram address for ram simulator
+                STORE mui2+1            # poke indirect address into next load
+          mui2: LOAD -99                # load direct address
+                ADD   i+2               # offset ram address
+                STORE mui4+1            # poke direct address into op
+                LOAD  i+2               # load <ACC>
+                STORE mui3+1            # poke <ACC> into next load
+                STORE mui5+1            # poke <ACC> into result storage
+          mui3: LOAD  -99               # load *<ACC>
+          mui4: MULT  -99               # mult *operand
+          mui5: STORE -99               # store *<ACC>
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  ramstep
+
+divdirect:      LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE did1+1            # poke direct operand into next load
+          did1: LOAD  -99               # load direct address
+                ADD   i+2               # offset ram address for ram simulator
+                STORE did3+1            # poke direct addres into op
+                LOAD  i+2               # load <ACC>
+                STORE did2+1            # poke <ACC> into next load
+                STORE did4+1            # poke <ACC> into result storage
+          did2: LOAD  -99               # load *<ACC>
+          did3: DIV   -99               # div operand
+          did4: STORE -99               # store *<ACC>
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  ramstep
+
+divliteral:     LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE dil2+1            # poke literal operand into op
+                LOAD  i+2               # load <ACC>
+                STORE dil1+1            # poke <ACC> into next load
+                STORE dil3+1            # poke <ACC> into result storage
+          dil1: LOAD  -99               # load *<ACC>
+          dil2: DIV   -99               # div =operand
+          dil3: STORE -99               # store *<ACC>
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  ramstep
+
+divindirect:    LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE dii1+1            # poke operand into next load
+          dii1: LOAD  -99               # load indirect address
+                ADD   i+2               # offset ram address for ram simulator
+                STORE dii2+1            # poke indirect address into next load
+          dii2: LOAD -99                # load direct address
+                ADD   i+2               # offset ram address
+                STORE dii4+1            # poke direct address into op
+                LOAD  i+2               # load <ACC>
+                STORE dii3+1            # poke <ACC> into next load
+                STORE dii5+1            # poke <ACC> into result storage
+          dii3: LOAD  -99               # load *<ACC>
+          dii4: DIV   -99               # div *operand
+          dii5: STORE -99               # store *<ACC>
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  ramstep
+
+readdirect:     LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE red1+1            # poke operand into next load
+          red1: LOAD  -99               # load direct address
+                ADD   i+2               # offset ram address for ram simulator
+                STORE red2+1            # poke direct address into op
+          red2: READ  -99               # read operand
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  ramstep
+
+readindirect:   LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE rei1+1            # poke operand into next load
+          rei1: LOAD  -99               # load indirect address
+                ADD   i+2               # offset ram address for ram simulator
+                STORE rei2+1            # poke indirect address into next load
+          rei2: LOAD  -99               # load direct address
+                ADD   i+2               # offset ram address
+                STORE rei3+1            # poke direct address into op
+          rei3: READ  -99               # read *operand
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  ramstep
+
+writedirect:    LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE wrd1+1            # poke operand into next load
+          wrd1: LOAD  -99               # load direct address
+                ADD   i+2               # offset ram address for ram simulator
+                STORE wrd2+1            # poke direct address into op
+          wrd2: WRITE -99               # write operand
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  ramstep
+
+writeliteral:   LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE wrl1+1            # poke operand into op
+          wrl1: WRITE -99               # write =operand
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  ramstep
+
+writeindirect:  LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE wri1+1            # poke operand into next load
+          wri1: LOAD  -99               # load indirect address
+                ADD   i+2               # offset ram address for ram simulator
+                STORE wri2+1            # poke indirect address into next load
+          wri2: LOAD  -99               # load direct address
+                ADD   i+2               # offset ram address
+                STORE wri3+1            # poke direct address into op
+          wri3: WRITE -99               # write *operand
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  ramstep
+
+jumptgt:        LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE ju1+1             # poke operand into next load
+           ju1: LOAD  -99               # load ram lc
+                ADD   =i+3              # offset ram lc
+                STORE i+1               # store into ram lc
+                JUMP  ramstep
+
+jgtztgt:        LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE jg1+1             # poke operand into next load
+           jg1: LOAD  -99               # load ram lc
+                ADD   =i+3              # offset ram lc
+                STORE i                 # save jump target to temp register
+                LOAD  i+2               # load <ACC>
+                STORE jg2+1             # poke <ACC> into next load
+           jg2: LOAD  -99               # load *<ACC>
+                JGTZ  jg3               # jump to true branch
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  ramstep
+           jg3: LOAD  i                 # load new ram lc from temp register
+                STORE i+1               # store into ram lc
+                JUMP  ramstep
+
+jzerotgt:       LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE jz1+1             # poke operand into next load
+           jz1: LOAD  -99               # load ram lc
+                ADD   =i+3              # offset ram lc
+                STORE i                 # save jump target to temp register
+                LOAD  i+2               # load <ACC>
+                STORE jz2+1             # poke <ACC> into next load
+           jz2: LOAD  -99               # load *<ACC>
+                JZERO jz3               # jump to true branch
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  ramstep
+           jz3: LOAD  i                 # load new ram lc from temp register
+                STORE i+1               # store into ram lc
+                JUMP  ramstep
+
+i:                                      # indirect address

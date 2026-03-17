@@ -16,9 +16,9 @@ class Tag(StrEnum):
 
     comment = r"#.*$"
     whitespace = r"\s+"
+    colon = r"\:"
     equals = r"\="
-    star = r"\*"
-    literal_integer = r"[-]?\d+"
+    literal_integer = r"[-+]?\d+"
     keyword = "(" + "|".join(list({o.name.split("_")[0] for o in Opcode})) + ")"
     literal_id = r"\w+"
     error = r"."

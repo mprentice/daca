@@ -3,6 +3,7 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import IntEnum
+from functools import cached_property
 
 from daca.common import pairwise
 
@@ -71,14 +72,14 @@ class Program:
         """Returns the text representation of the program."""
         return "\n".join([f"{inst}" for inst in self.instructions])
 
-    @property
+    @cached_property
     def bytecode(self) -> Sequence[int]:
         """A bytecode representation of the program."""
         buf: list[int] = []
         for inst in self.instructions:
             buf.append(inst.opcode.value)
             buf.append(inst.address)
-        return buf
+        return tuple(buf)
 
     @classmethod
     def from_bytecode(cls, bytecode: Sequence[int]) -> "Program":

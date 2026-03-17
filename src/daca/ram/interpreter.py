@@ -22,7 +22,7 @@ class RAM:
     The run and step methods raise errors if the machine is in a halted state.
     """
 
-    program: Program | Sequence[int] = (Opcode.HALT.value,)
+    program: Program
     input_tape: Sequence[int] = field(default_factory=tuple)
     read_head: int = 0
     location_counter: int = 0
@@ -44,9 +44,7 @@ class RAM:
         self.halted = False
         self.step_counter = 0
         self.step_cost = 0
-        self._bytecode = (
-            self.program.bytecode if isinstance(self.program, Program) else self.program
-        )
+        self._bytecode = self.program.bytecode
 
     def run(self, input_tape: Optional[Sequence[int]] = None) -> None:
         """Run the machine until reaching a halting state.

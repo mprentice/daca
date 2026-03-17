@@ -25,11 +25,11 @@ class RASP:
 
     """
 
-    program: Program | Sequence[int] = (Opcode.HALT.value,)
+    program: Program
     input_tape: Sequence[int] = field(default_factory=tuple)
     read_head: int = 0
     location_counter: int = 1
-    memory_registers: MutableMapping[int, int] = field(default_factory=lambda: {0: 0})
+    memory_registers: MutableMapping[int, int] = field(default_factory=dict)
     output_tape: MutableSequence[int] = field(default_factory=list)
     halted: bool = False
     step_counter: int = 0
@@ -46,9 +46,7 @@ class RASP:
         self.halted = False
         self.step_counter = 0
         self.step_cost = 0
-        bytecode = (
-            self.program.bytecode if isinstance(self.program, Program) else self.program
-        )
+        bytecode = self.program.bytecode
         self.memory_registers.update({idx + 1: b for idx, b in enumerate(bytecode)})
 
     def run(self, input_tape: Optional[Sequence[int]] = None) -> None:

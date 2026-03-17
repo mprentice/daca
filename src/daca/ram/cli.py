@@ -10,7 +10,7 @@ from typing import Iterable, Optional
 
 from daca.common import Token
 
-from .compiler import compile, decompile
+from .compiler import decompile
 from .interpreter import RAM
 from .lexer import tokenize
 from .parser import parse
@@ -100,11 +100,10 @@ class CliApp:
             with closing(args.program):
                 d = json.load(args.program)
             instructions = d["instructions"]
+            jumptable = d.get("jumptable")
+            program = decompile(instructions, jumptable)
             if args.decompile:
-                jumptable = d.get("jumptable")
-                ast = decompile(instructions, jumptable)
-                print(f"{ast}")
-            ram = RAM(instructions, input_tape)
+                print(f"{program}")
         else:
             with closing(args.program):
                 tokens: Iterable[Token] = tokenize(args.program)
@@ -123,16 +122,19 @@ class CliApp:
                             )
                         )
 
-                ast = parse(tokens)
-            if args.parse:
-                print(f"{ast}")
+                program = parse(tokens)
 
-            program = compile(ast)
+            if args.parse:
+                print(f"{program}")
 
             if args.compile:
-                print(json.dumps({"instructions": program, "jumptable": ast.jumptable}))
+                d = {
+                    "instructions": program.bytecode,
+                    "jumptable": program.jumptable,
+                }
+                print(json.dumps(d))
 
-            ram = RAM(program, input_tape)
+        ram = RAM(program, input_tape)
 
         if args.no_execute:
             return

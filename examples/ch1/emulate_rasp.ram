@@ -1,3 +1,15 @@
+# A RAM that emulates running a RASP program encoded on its input tape. The
+# input tape should consist of the bytecode of a RASP program, followed by a 0,
+# followed by the program input.
+#
+# Memory layout:
+#
+#   0: emulator accumulator
+#   1: indirect address
+#   2: location counter (lc)
+#   3: rasp accumulator register
+# 4-n: rasp instructions
+
               JUMP loadrasp
 startrasp:    LOAD =4
               STORE 2

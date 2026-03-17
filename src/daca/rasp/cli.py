@@ -10,7 +10,7 @@ from typing import Iterable, Optional
 
 from daca.common import Token
 
-from .compiler import compile, decompile
+from .compiler import decompile
 from .interpreter import RASP
 from .lexer import tokenize
 from .parser import parse
@@ -99,11 +99,9 @@ class CliApp:
         ):
             with closing(args.program):
                 d = json.load(args.program)
-            instructions = d["instructions"]
+            program = decompile(d["instructions"])
             if args.decompile:
-                ast = decompile(instructions)
-                print(f"{ast}")
-            rasp = RASP(instructions, input_tape)
+                print(f"{program}")
         else:
             with closing(args.program):
                 tokens: Iterable[Token] = tokenize(args.program)
@@ -122,19 +120,18 @@ class CliApp:
                             )
                         )
 
-                ast = parse(tokens)
-            if args.parse:
-                print(f"{ast}")
+                program = parse(tokens)
 
-            program = compile(ast)
+            if args.parse:
+                print(f"{program}")
 
             if args.compile:
-                print(json.dumps({"instructions": program}))
-
-            rasp = RASP(program, input_tape)
+                print(json.dumps({"instructions": program.bytecode}))
 
         if args.no_execute:
             return
+
+        rasp = RASP(program, input_tape)
 
         rasp.run()
 

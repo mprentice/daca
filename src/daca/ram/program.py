@@ -3,6 +3,7 @@
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import IntEnum
+from functools import cached_property
 
 from daca.common import pairwise
 
@@ -98,7 +99,7 @@ class Program:
             lines.append(line)
         return "\n".join(lines)
 
-    @property
+    @cached_property
     def bytecode(self) -> Sequence[int]:
         """A bytecode representation of the program."""
         buf: list[int] = []
@@ -114,7 +115,7 @@ class Program:
                 assert isinstance(inst.address, Operand)
                 buf.append(inst.opcode.value | inst.address.optype.value)
                 buf.append(inst.address.value)
-        return buf
+        return tuple(buf)
 
     @classmethod
     def from_bytecode(
