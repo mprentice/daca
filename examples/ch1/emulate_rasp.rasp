@@ -1,0 +1,330 @@
+# A universal RASP, i.e. a RASP that emulates running a RASP program encoded on
+# its input tape. The input tape should consist of the bytecode of a RASP
+# program, followed by a 0, followed by the program input.
+#
+# Memory layout:
+#
+#        0: emulator accumulator
+#  1-(i-1): this rasp program
+#      <I>: register for temporary storage/intermediate results
+#     <LC>: location counter (lc), i + 1
+#    <ACC>: emulated rasp accumulator register, i + 2
+# <R0>-<n>: rasp instructions, i + 3
+#
+# Note: <I> isn't strictly necessary but makes this emulator code easier to
+# read.
+
+                LOAD  =i+3              # init <LC> ← <R0>
+                STORE i+1
+
+readrasp:       LOAD  i+1               # read instruction opcode into *<LC>
+                STORE rr1+1
+                STORE rr2+1
+           rr1: READ  -99
+           rr2: LOAD  -99
+                JZERO startrasp         # program load finished, run RASP
+                                        # simulation
+
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+
+                STORE rr3+1             # read operand into *<LC>
+           rr3: READ  -99
+
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+
+                JUMP readrasp           # read next instruction
+
+startrasp:      LOAD  =0                # initialize <ACC> ← 0
+                STORE i+2
+
+                LOAD  =i+3              # init <LC> <- <R0> to begin simulation
+                STORE i+1
+
+raspstep:       LOAD  i+1               # Run a single step using a big dispatch
+                                        # table
+                STORE rs1+1
+           rs1: LOAD  -99
+                STORE i
+                SUB   =1
+                JZERO loaddirect
+                LOAD  i
+                SUB   =2
+                JZERO loadliteral
+                LOAD  i
+                SUB   =3
+                JZERO storedirect
+                LOAD  i
+                SUB   =4
+                JZERO adddirect
+                LOAD  i
+                SUB   =5
+                JZERO addliteral
+                LOAD  i
+                SUB   =6
+                JZERO subdirect
+                LOAD  i
+                SUB   =7
+                JZERO subliteral
+                LOAD  i
+                SUB   =8
+                JZERO multdirect
+                LOAD  i
+                SUB   =9
+                JZERO multliteral
+                LOAD  i
+                SUB   =10
+                JZERO divdirect
+                LOAD  i
+                SUB   =11
+                JZERO divliteral
+                LOAD  i
+                SUB   =12
+                JZERO readdirect
+                LOAD  i
+                SUB   =13
+                JZERO writedirect
+                LOAD  i
+                SUB   =14
+                JZERO writeliteral
+                LOAD  i
+                SUB   =15
+                JZERO jumptgt
+                LOAD  i
+                SUB   =16
+                JZERO jgtztgt
+                LOAD  i
+                SUB   =17
+                JZERO jzerotgt
+                HALT
+
+loaddirect:     LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE ld1+1             # poke direct operand into next load
+           ld1: LOAD  -99               # load direct address
+                ADD   =i+2              # offset rasp address for rasp simulator
+                STORE ld2+1             # poke direct address into op
+           ld2: LOAD  -99               # load operand
+                STORE i+2               # store <ACC>
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  raspstep
+
+loadliteral:    LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE ll1+1             # poke literal operand address into op
+           ll1: LOAD  -99               # load =operand
+                STORE i+2               # store <ACC>
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  raspstep
+
+storedirect:    LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE std1+1            # poke direct operand into next load
+          std1: LOAD  -99               # load direct address
+                ADD   =i+2              # offset rasp address for rasp simulator
+                STORE std2+1            # poke direct address into op
+                LOAD  i+2               # load <ACC>
+          std2: STORE -99               # store operand
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  raspstep
+
+adddirect:      LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE add1+1            # poke direct operand into next load
+          add1: LOAD  -99               # load direct address
+                ADD   =i+2              # offset rasp address for rasp simulator
+                STORE add2+1            # poke direct address into op
+                LOAD  i+2               # load <ACC>
+          add2: ADD   -99               # add operand
+                STORE i+2               # store <ACC>
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  raspstep
+
+addliteral:     LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE adl1+1            # poke literal operand into op
+                LOAD  i+2               # load <ACC>
+          adl1: ADD   -99               # add =operand
+                STORE i+2               # store <ACC>
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  raspstep
+
+subdirect:      LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE sud1+1            # poke direct operand into next load
+          sud1: LOAD  -99               # load direct address
+                ADD   =i+2              # offset rasp address for rasp simulator
+                STORE sud2+1            # poke direct address into op
+                LOAD  i+2               # load <ACC>
+          sud2: SUB   -99               # sub operand
+                STORE i+2               # store <ACC>
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  raspstep
+
+subliteral:     LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE sul1+1            # poke literal operand into op
+                LOAD  i+2               # load <ACC>
+          sul1: SUB   -99               # sub =operand
+                STORE i+2               # store *<ACC>
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  raspstep
+
+multdirect:     LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE mud1+1            # poke direct operand into next load
+          mud1: LOAD  -99               # load direct address
+                ADD   =i+2              # offset rasp address for rasp simulator
+                STORE mud2+1            # poke direct address into op
+                LOAD  i+2               # load <ACC>
+          mud2: MULT  -99               # mult operand
+                STORE i+2               # store <ACC>
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  raspstep
+
+multliteral:    LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE mul1+1            # poke literal operand into op
+                LOAD  i+2               # load <ACC>
+          mul1: MULT  -99               # mult =operand
+                STORE i+2               # store <ACC>
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  raspstep
+
+divdirect:      LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE did1+1            # poke direct operand into next load
+          did1: LOAD  -99               # load direct address
+                ADD   =i+2              # offset rasp address for rasp simulator
+                STORE did2+1            # poke direct address into op
+                LOAD  i+2               # load <ACC>
+          did2: DIV   -99               # div operand
+                STORE i+2               # store <ACC>
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  raspstep
+
+divliteral:     LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE dil1+1            # poke literal operand into op
+                LOAD  i+2               # load <ACC>
+          dil1: DIV   -99               # div =operand
+                STORE i+2               # store <ACC>
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  raspstep
+
+readdirect:     LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE red1+1            # poke operand into next load
+          red1: LOAD  -99               # load direct address
+                ADD   =i+2              # offset rasp address for rasp simulator
+                STORE red2+1            # poke direct address into op
+          red2: READ  -99               # read operand
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  raspstep
+
+writedirect:    LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE wrd1+1            # poke operand into next load
+          wrd1: LOAD  -99               # load direct address
+                ADD   =i+2              # offset rasp address for rasp simulator
+                STORE wrd2+1            # poke direct address into op
+          wrd2: WRITE -99               # write operand
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  raspstep
+
+writeliteral:   LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE wrl1+1            # poke operand into op
+          wrl1: WRITE -99               # write =operand
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  raspstep
+
+jumptgt:        LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE ju1+1             # poke operand into next load
+           ju1: LOAD  -99               # load rasp lc
+                ADD   =i+2              # offset rasp lc
+                STORE i+1               # store into rasp lc
+                JUMP  raspstep
+
+jgtztgt:        LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE jg1+1             # poke operand into next load
+           jg1: LOAD  -99               # load rasp lc
+                ADD   =i+2              # offset rasp lc
+                STORE i                 # save jump target to temp register
+                LOAD  i+2               # load <ACC>
+                JGTZ  jg3               # jump to true branch
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  raspstep
+           jg3: LOAD  i                 # load new rasp lc from temp register
+                STORE i+1               # store into rasp lc
+                JUMP  raspstep
+
+jzerotgt:       LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                STORE jz1+1             # poke operand into next load
+           jz1: LOAD  -99               # load rasp lc
+                ADD   =i+2              # offset rasp lc
+                STORE i                 # save jump target to temp register
+                LOAD  i+2               # load <ACC>
+                JZERO jz3               # jump to true branch
+                LOAD  i+1               # inc <LC>
+                ADD   =1
+                STORE i+1
+                JUMP  raspstep
+           jz3: LOAD  i                 # load new rasp lc from temp register
+                STORE i+1               # store into rasp lc
+                JUMP  raspstep
+
+i:                                      # indirect address
